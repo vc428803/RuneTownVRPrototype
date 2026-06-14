@@ -2779,6 +2779,7 @@ GameObject:
   m_Component:
   - component: {fileID: 772436394}
   - component: {fileID: 772436395}
+  - component: {fileID: 772436396}
   m_Layer: 0
   m_Name: NPC_Guide
   m_TagString: Untagged
@@ -2881,6 +2882,19 @@ MonoBehaviour:
   m_StartingInteractionStrengthFilters: []
   m_AutoFindParentInteractableInHierarchy: 0
   m_ParentInteractableObject: {fileID: 0}
+--- !u!114 &772436396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 772436393}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3ccc2ef17331b24f99180fa5ab5415f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NPCInteractionHint
+  talkHintText: {fileID: 1799203804}
 --- !u!1 &781979573
 GameObject:
   m_ObjectHideFlags: 0
