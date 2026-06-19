@@ -1,21 +1,28 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
-using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class NPCInteractionHint : MonoBehaviour
 {
-    [Header("要顯示 / 隱藏的提示文字")]
+    [Header("Ray 指到 NPC 時顯示的提示文字")]
     public GameObject talkHintText;
 
-    private XRBaseInteractable interactable;
+    [Header("按 Trigger / Select 後顯示的對話文字")]
+    public GameObject dialogueText;
+
+    private UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable interactable;
 
     private void Awake()
     {
-        interactable = GetComponent<XRBaseInteractable>();
+        interactable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
 
         if (talkHintText != null)
         {
             talkHintText.SetActive(false);
+        }
+
+        if (dialogueText != null)
+        {
+            dialogueText.SetActive(false);
         }
     }
 
@@ -23,7 +30,7 @@ public class NPCInteractionHint : MonoBehaviour
     {
         if (interactable == null)
         {
-            interactable = GetComponent<XRBaseInteractable>();
+            interactable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
         }
 
         if (interactable != null)
@@ -58,10 +65,20 @@ public class NPCInteractionHint : MonoBehaviour
         {
             talkHintText.SetActive(false);
         }
+
+        if (dialogueText != null)
+        {
+            dialogueText.SetActive(false);
+        }
     }
 
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
         Debug.Log("Talk to Guide");
+
+        if (dialogueText != null)
+        {
+            dialogueText.SetActive(true);
+        }
     }
 }
