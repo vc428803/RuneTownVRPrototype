@@ -1,16 +1,17 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class NPCInteractionHint : MonoBehaviour
 {
     [Header("要顯示 / 隱藏的提示文字")]
     public GameObject talkHintText;
 
-    private UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable interactable;
+    private XRBaseInteractable interactable;
 
     private void Awake()
     {
-        interactable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
+        interactable = GetComponent<XRBaseInteractable>();
 
         if (talkHintText != null)
         {
@@ -22,13 +23,14 @@ public class NPCInteractionHint : MonoBehaviour
     {
         if (interactable == null)
         {
-            interactable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
+            interactable = GetComponent<XRBaseInteractable>();
         }
 
         if (interactable != null)
         {
             interactable.hoverEntered.AddListener(OnHoverEntered);
             interactable.hoverExited.AddListener(OnHoverExited);
+            interactable.selectEntered.AddListener(OnSelectEntered);
         }
     }
 
@@ -38,6 +40,7 @@ public class NPCInteractionHint : MonoBehaviour
         {
             interactable.hoverEntered.RemoveListener(OnHoverEntered);
             interactable.hoverExited.RemoveListener(OnHoverExited);
+            interactable.selectEntered.RemoveListener(OnSelectEntered);
         }
     }
 
@@ -55,5 +58,10 @@ public class NPCInteractionHint : MonoBehaviour
         {
             talkHintText.SetActive(false);
         }
+    }
+
+    private void OnSelectEntered(SelectEnterEventArgs args)
+    {
+        Debug.Log("Talk to Guide");
     }
 }
