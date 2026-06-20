@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 using UnityEngine.XR.Interaction.Toolkit;
 
 public class NPCInteractionHint : MonoBehaviour
@@ -9,7 +10,16 @@ public class NPCInteractionHint : MonoBehaviour
     [Header("按 Trigger / Select 後顯示的對話文字")]
     public GameObject dialogueText;
 
+    [Header("NPC 對話句子")]
+    public string[] dialogueLines =
+    {
+        "Welcome to Rune Town!",
+        "Feel free to explore the town."
+    };
+
     private UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable interactable;
+    private TextMeshPro dialogueTMP;
+    private int dialogueIndex = 0;
 
     private void Awake()
     {
@@ -22,6 +32,7 @@ public class NPCInteractionHint : MonoBehaviour
 
         if (dialogueText != null)
         {
+            dialogueTMP = dialogueText.GetComponent<TextMeshPro>();
             dialogueText.SetActive(false);
         }
     }
@@ -70,15 +81,27 @@ public class NPCInteractionHint : MonoBehaviour
         {
             dialogueText.SetActive(false);
         }
+
+        dialogueIndex = 0;
     }
 
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
         Debug.Log("Talk to Guide");
 
-        if (dialogueText != null)
+        if (dialogueText == null || dialogueTMP == null || dialogueLines.Length == 0)
         {
-            dialogueText.SetActive(true);
+            return;
+        }
+
+        dialogueText.SetActive(true);
+        dialogueTMP.text = dialogueLines[dialogueIndex];
+
+        dialogueIndex++;
+
+        if (dialogueIndex >= dialogueLines.Length)
+        {
+            dialogueIndex = 0;
         }
     }
 }
