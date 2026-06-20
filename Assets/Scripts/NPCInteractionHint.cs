@@ -14,7 +14,8 @@ public class NPCInteractionHint : MonoBehaviour
     public string[] dialogueLines =
     {
         "Welcome to Rune Town!",
-        "Feel free to explore the town."
+        "Feel free to explore the town.",
+        "Can you visit the fountain??"
     };
 
     private UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable interactable;
