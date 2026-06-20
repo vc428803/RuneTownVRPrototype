@@ -64,11 +64,19 @@ public class NPCInteractionHint : MonoBehaviour
 
     private void OnHoverEntered(HoverEnterEventArgs args)
     {
-        if (talkHintText != null)
+        // 當玩家的游標或控制器「懸停」在物件上方時觸發
+
+        // 條件檢查：
+        // 1. 提示文字物件存在 (talkHintText != null)
+        // 2. 對話框物件存在 (dialogueText != null)
+        // 3. 對話框目前尚未顯示 (dialogueText.activeSelf == false)
+        if (talkHintText != null && dialogueText != null && !dialogueText.activeSelf)
         {
+            // 顯示提示文字，提醒玩家可以互動
             talkHintText.SetActive(true);
         }
     }
+
 
     private void OnHoverExited(HoverExitEventArgs args)
     {
@@ -87,21 +95,35 @@ public class NPCInteractionHint : MonoBehaviour
 
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
+        // 當物件被選取時觸發，輸出除錯訊息
         Debug.Log("Talk to Guide");
 
-        if (dialogueText == null || dialogueTMP == null || dialogueLines.Length == 0)
+        // 如果提示文字存在，將其隱藏 (避免對話開始時仍顯示提示)
+        if (talkHintText != null)
         {
-            return;
+            talkHintText.SetActive(false);
         }
 
+        // 檢查對話框物件、TMP 元件是否存在，以及對話內容是否有資料
+        if (dialogueText == null || dialogueTMP == null || dialogueLines.Length == 0)
+        {
+            return; // 若有任何缺失，直接結束
+        }
+
+        // 顯示對話框物件
         dialogueText.SetActive(true);
+
+        // 將目前索引位置的文字顯示在 TMP 元件上
         dialogueTMP.text = dialogueLines[dialogueIndex];
 
+        // 對話索引往下移動，準備下一句
         dialogueIndex++;
 
+        // 如果索引超過陣列長度，重置回 0（循環播放）
         if (dialogueIndex >= dialogueLines.Length)
         {
             dialogueIndex = 0;
         }
     }
+
 }
