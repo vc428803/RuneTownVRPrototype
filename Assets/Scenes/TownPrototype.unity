@@ -3076,6 +3076,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NPCInteractionHint
   talkHintText: {fileID: 1799203804}
   dialogueText: {fileID: 745326206}
+  dialogueLines:
+  - Welcome to Rune Town!
+  - Feel free to explore the town.
 --- !u!1 &781979573
 GameObject:
   m_ObjectHideFlags: 0
@@ -3199,6 +3202,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 787407661}
+  - component: {fileID: 787407662}
   m_Layer: 0
   m_Name: NPC_Texts
   m_TagString: Untagged
@@ -3224,6 +3228,18 @@ Transform:
   - {fileID: 1799203805}
   m_Father: {fileID: 772436394}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &787407662
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 787407660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cb0f4d7a630cdf4981880941487c031, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LookAtCamera
 --- !u!1 &826943974
 GameObject:
   m_ObjectHideFlags: 0
