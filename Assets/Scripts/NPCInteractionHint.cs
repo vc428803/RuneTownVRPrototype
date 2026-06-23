@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.InputSystem;
 
 public class NPCInteractionHint : MonoBehaviour
 {
@@ -9,6 +10,9 @@ public class NPCInteractionHint : MonoBehaviour
 
     [Header("按 Trigger / Select 後顯示的對話文字")]
     public GameObject dialogueText;
+
+    [Header("問題選單文字")]
+    public GameObject questionMenuText;
 
     [Header("NPC 對話句子")]
     public string[] dialogueLines =
@@ -21,9 +25,15 @@ public class NPCInteractionHint : MonoBehaviour
     private UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable interactable;
     private TextMeshPro dialogueTMP;
     private int dialogueIndex = 0;
+    private bool questionMenuOpen = false;
 
     private void Awake()
     {
+        if (questionMenuText != null)
+        {
+            questionMenuText.SetActive(false);
+        }
+
         interactable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>();
 
         if (talkHintText != null)
@@ -36,6 +46,50 @@ public class NPCInteractionHint : MonoBehaviour
             dialogueTMP = dialogueText.GetComponent<TextMeshPro>();
             dialogueText.SetActive(false);
         }
+    }
+
+    private void Update()
+    {
+        if (Keyboard.current == null)
+        {
+            return;
+        }
+
+        if (!questionMenuOpen)
+        {
+            return;
+        }
+
+        if (Keyboard.current.digit1Key.wasPressedThisFrame || Keyboard.current.numpad1Key.wasPressedThisFrame)
+        {
+            SelectQuestion("Where is the fountain?");
+        }
+        else if (Keyboard.current.digit2Key.wasPressedThisFrame || Keyboard.current.numpad2Key.wasPressedThisFrame)
+        {
+            SelectQuestion("Where is the market?");
+        }
+        else if (Keyboard.current.digit3Key.wasPressedThisFrame || Keyboard.current.numpad3Key.wasPressedThisFrame)
+        {
+            SelectQuestion("Where is the blacksmith?");
+        }
+    }
+
+    private void SelectQuestion(string question)
+    {
+        Debug.Log("Selected question: " + question);
+
+        if (questionMenuText != null)
+        {
+            questionMenuText.SetActive(false);
+        }
+
+        if (dialogueText != null && dialogueTMP != null)
+        {
+            dialogueText.SetActive(true);
+            dialogueTMP.text = "You asked: " + question;
+        }
+
+        questionMenuOpen = false;
     }
 
     private void OnEnable()
@@ -96,35 +150,23 @@ public class NPCInteractionHint : MonoBehaviour
 
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
-        // 當物件被選取時觸發，輸出除錯訊息
-        Debug.Log("Talk to Guide");
+        Debug.Log("Open question menu");
 
-        // 如果提示文字存在，將其隱藏 (避免對話開始時仍顯示提示)
         if (talkHintText != null)
         {
             talkHintText.SetActive(false);
         }
 
-        // 檢查對話框物件、TMP 元件是否存在，以及對話內容是否有資料
-        if (dialogueText == null || dialogueTMP == null || dialogueLines.Length == 0)
+        if (dialogueText != null)
         {
-            return; // 若有任何缺失，直接結束
+            dialogueText.SetActive(false);
         }
 
-        // 顯示對話框物件
-        dialogueText.SetActive(true);
-
-        // 將目前索引位置的文字顯示在 TMP 元件上
-        dialogueTMP.text = dialogueLines[dialogueIndex];
-
-        // 對話索引往下移動，準備下一句
-        dialogueIndex++;
-
-        // 如果索引超過陣列長度，重置回 0（循環播放）
-        if (dialogueIndex >= dialogueLines.Length)
+        if (questionMenuText != null)
         {
-            dialogueIndex = 0;
+            questionMenuText.SetActive(true);
         }
+
+        questionMenuOpen = true;
     }
-
 }
