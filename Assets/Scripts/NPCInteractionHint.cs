@@ -22,6 +22,7 @@ public class NPCInteractionHint : MonoBehaviour
         "Can you visit the fountain??"
     };
 
+    [SerializeField] private LLMClient llmClient;
     private UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable interactable;
     private TextMeshPro dialogueTMP;
     private int dialogueIndex = 0;
@@ -62,16 +63,68 @@ public class NPCInteractionHint : MonoBehaviour
 
         if (Keyboard.current.digit1Key.wasPressedThisFrame || Keyboard.current.numpad1Key.wasPressedThisFrame)
         {
-            SelectQuestion("Where is the fountain?");
+            AskLLM("Where is the fountain?");
         }
         else if (Keyboard.current.digit2Key.wasPressedThisFrame || Keyboard.current.numpad2Key.wasPressedThisFrame)
         {
-            SelectQuestion("Where is the market?");
+            AskLLM("Where is the market?");
         }
         else if (Keyboard.current.digit3Key.wasPressedThisFrame || Keyboard.current.numpad3Key.wasPressedThisFrame)
         {
-            SelectQuestion("Where is the blacksmith?");
+            AskLLM("Where is the blacksmith?");
         }
+    }
+
+    private void AskLLM(string question)
+    {
+        if (llmClient == null)
+        {
+            Debug.LogError("LLMClient 尚未指定，請把 LLM_Manager 拖到 Inspector 的 llmClient 欄位。");
+            return;
+        }
+
+        Debug.Log("Sending question to LLM: " + question);
+
+        if (dialogueText != null)
+        {
+            dialogueText.SetActive(true);
+
+            TMP_Text textComponent = dialogueText.GetComponent<TMP_Text>();
+
+            if (textComponent != null)
+            {
+                textComponent.text = "Thinking...";
+            }
+        }
+
+        StartCoroutine(llmClient.SendChat(
+            "guide_liora",
+            question,
+            reply =>
+            {
+                Debug.Log("LLM Reply: " + reply);
+
+                if (dialogueText != null)
+                {
+                    dialogueText.SetActive(true);
+
+                    TMP_Text textComponent = dialogueText.GetComponent<TMP_Text>();
+
+                    if (textComponent != null)
+                    {
+                        textComponent.text = reply;
+                    }
+                    else
+                    {
+                        Debug.LogError("dialogueText 物件上找不到 TMP_Text 元件。請確認你拖的是 Dialogue_Text。");
+                    }
+                }
+            },
+            error =>
+            {
+                Debug.LogError(error);
+            }
+        ));
     }
 
     private void SelectQuestion(string question)
