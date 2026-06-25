@@ -23,6 +23,7 @@ public class NPCInteractionHint : MonoBehaviour
     };
 
     [SerializeField] private LLMClient llmClient;
+    private bool isWaitingForLLMReply = false;
     private UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable interactable;
     private TextMeshPro dialogueTMP;
     private int dialogueIndex = 0;
@@ -48,7 +49,6 @@ public class NPCInteractionHint : MonoBehaviour
             dialogueText.SetActive(false);
         }
     }
-
     private void Update()
     {
         if (Keyboard.current == null)
@@ -77,13 +77,29 @@ public class NPCInteractionHint : MonoBehaviour
 
     private void AskLLM(string question)
     {
+        if (isWaitingForLLMReply)
+        {
+            Debug.Log("Already waiting for LLM reply. Please wait.");
+            return;
+        }
+
+        isWaitingForLLMReply = true;
+        Debug.Log("isWaitingForLLMReply set to TRUE");
+
         if (llmClient == null)
         {
             Debug.LogError("LLMClient 尚未指定，請把 LLM_Manager 拖到 Inspector 的 llmClient 欄位。");
+            isWaitingForLLMReply = false;
             return;
         }
 
         Debug.Log("Sending question to LLM: " + question);
+
+        // 這樣玩家按 1 / 2 / 3 之後，問題選單會自動關閉。
+        if (questionMenuText != null)
+        {
+            questionMenuText.SetActive(false);
+        }
 
         if (dialogueText != null)
         {
@@ -119,10 +135,28 @@ public class NPCInteractionHint : MonoBehaviour
                         Debug.LogError("dialogueText 物件上找不到 TMP_Text 元件。請確認你拖的是 Dialogue_Text。");
                     }
                 }
+
+                isWaitingForLLMReply = false;
+                Debug.Log("isWaitingForLLMReply set to FALSE after success");
             },
             error =>
             {
                 Debug.LogError(error);
+
+                if (dialogueText != null)
+                {
+                    dialogueText.SetActive(true);
+
+                    TMP_Text textComponent = dialogueText.GetComponent<TMP_Text>();
+
+                    if (textComponent != null)
+                    {
+                        textComponent.text = "Sorry, I cannot answer right now.";
+                    }
+                }
+
+                isWaitingForLLMReply = false;
+                Debug.Log("isWaitingForLLMReply set to FALSE after error");
             }
         ));
     }
@@ -198,11 +232,23 @@ public class NPCInteractionHint : MonoBehaviour
             dialogueText.SetActive(false);
         }
 
+
         dialogueIndex = 0;
     }
 
+    //NPC 正在等 LLM 回答時
+    //→ 玩家再按 G / Select
+    //→ 不會重新打開 Question_Menu_Text
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
+        Debug.Log("OnSelectEntered called. isWaitingForLLMReply => " + isWaitingForLLMReply);
+
+        if (isWaitingForLLMReply)
+        {
+            Debug.Log("NPC is thinking. Please wait.");
+            return;
+        }
+
         Debug.Log("Open question menu");
 
         if (talkHintText != null)
