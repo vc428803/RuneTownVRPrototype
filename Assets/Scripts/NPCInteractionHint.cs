@@ -9,6 +9,9 @@ public class NPCInteractionHint : MonoBehaviour
     [Header("NPC 資料設定")]
     [SerializeField] private NPCProfile npcProfile;
 
+    [Header("VR 選項選單 Canvas")]
+    [SerializeField] private GameObject optionMenuCanvas;
+
     [Header("Ray 指到 NPC 時顯示的提示文字")]
     public GameObject talkHintText;
 
@@ -79,10 +82,10 @@ public class NPCInteractionHint : MonoBehaviour
         }
     }
 
-
-
-    private void SelectOption(int optionIndex)
+    public void SelectOption(int optionIndex)
     {
+        Debug.Log("Button clicked. optionIndex = " + optionIndex);
+
         if (npcProfile == null)
         {
             Debug.LogError("NPCProfile 尚未指定，請把 NPCProfile asset 拖到 Inspector。");
@@ -143,6 +146,11 @@ public class NPCInteractionHint : MonoBehaviour
         if (questionMenuText != null)
         {
             questionMenuText.SetActive(false);
+        }
+
+        if (optionMenuCanvas != null)
+        {
+            optionMenuCanvas.SetActive(false);
         }
 
         if (dialogueText != null)
@@ -295,7 +303,7 @@ public class NPCInteractionHint : MonoBehaviour
             return;
         }
 
-        Debug.Log("Open option menu");
+        Debug.Log("Open VR option menu");
 
         if (talkHintText != null)
         {
@@ -307,16 +315,18 @@ public class NPCInteractionHint : MonoBehaviour
             dialogueText.SetActive(false);
         }
 
-        UpdateOptionMenuText();
-
         if (questionMenuText != null)
         {
-            questionMenuText.SetActive(true);
+            questionMenuText.SetActive(false);
+        }
+
+        if (optionMenuCanvas != null)
+        {
+            optionMenuCanvas.SetActive(true);
         }
 
         questionMenuOpen = true;
     }
-
     private void CloseDialogue()
     {
         if (questionMenuText != null)
