@@ -79,6 +79,8 @@ public class NPCInteractionHint : MonoBehaviour
         }
     }
 
+
+
     private void SelectOption(int optionIndex)
     {
         if (npcProfile == null)
@@ -104,52 +106,6 @@ public class NPCInteractionHint : MonoBehaviour
         Debug.Log("Selected option: " + selectedOption.displayText);
 
         HandleOption(selectedOption);
-    }
-
-    private void HandleOption(NPCOption option)
-    {
-        switch (option.optionType)
-        {
-            case NPCOptionType.AskLLM:
-                AskLLM(option.playerMessage);
-                break;
-
-            case NPCOptionType.CloseDialogue:
-                CloseDialogue();
-                break;
-
-            case NPCOptionType.Teleport:
-                Debug.Log("Teleport action not implemented yet. TargetId: " + option.targetId);
-                break;
-
-            case NPCOptionType.OpenShop:
-                Debug.Log("OpenShop action not implemented yet. TargetId: " + option.targetId);
-                break;
-
-            case NPCOptionType.OpenStorage:
-                Debug.Log("OpenStorage action not implemented yet.");
-                break;
-
-            case NPCOptionType.StartQuest:
-                Debug.Log("StartQuest action not implemented yet. QuestId: " + option.targetId);
-                break;
-
-            case NPCOptionType.CompleteQuest:
-                Debug.Log("CompleteQuest action not implemented yet. QuestId: " + option.targetId);
-                break;
-
-            case NPCOptionType.SavePoint:
-                Debug.Log("SavePoint action not implemented yet.");
-                break;
-
-            case NPCOptionType.Dialogue:
-                Debug.Log("Dialogue action not implemented yet.");
-                break;
-
-            default:
-                Debug.LogWarning("Unhandled NPC option type: " + option.optionType);
-                break;
-        }
     }
 
     private void AskLLM(string question)
@@ -333,15 +289,13 @@ public class NPCInteractionHint : MonoBehaviour
     //→ 不會重新打開 Question_Menu_Text
     private void OnSelectEntered(SelectEnterEventArgs args)
     {
-        Debug.Log("OnSelectEntered called. isWaitingForLLMReply => " + isWaitingForLLMReply);
-
         if (isWaitingForLLMReply)
         {
             Debug.Log("NPC is thinking. Please wait.");
             return;
         }
 
-        Debug.Log("Open question menu");
+        Debug.Log("Open option menu");
 
         if (talkHintText != null)
         {
@@ -352,6 +306,8 @@ public class NPCInteractionHint : MonoBehaviour
         {
             dialogueText.SetActive(false);
         }
+
+        UpdateOptionMenuText();
 
         if (questionMenuText != null)
         {
@@ -381,5 +337,83 @@ public class NPCInteractionHint : MonoBehaviour
         questionMenuOpen = false;
 
         Debug.Log("Dialogue closed.");
+    }
+
+    private void HandleOption(NPCOption option)
+    {
+        switch (option.optionType)
+        {
+            case NPCOptionType.AskLLM:
+                AskLLM(option.playerMessage);
+                break;
+
+            case NPCOptionType.CloseDialogue:
+                CloseDialogue();
+                break;
+
+            case NPCOptionType.Teleport:
+                Debug.Log("Teleport action not implemented yet. TargetId: " + option.targetId);
+                break;
+
+            case NPCOptionType.OpenShop:
+                Debug.Log("OpenShop action not implemented yet. TargetId: " + option.targetId);
+                break;
+
+            case NPCOptionType.OpenStorage:
+                Debug.Log("OpenStorage action not implemented yet.");
+                break;
+
+            case NPCOptionType.StartQuest:
+                Debug.Log("StartQuest action not implemented yet. QuestId: " + option.targetId);
+                break;
+
+            case NPCOptionType.CompleteQuest:
+                Debug.Log("CompleteQuest action not implemented yet. QuestId: " + option.targetId);
+                break;
+
+            case NPCOptionType.SavePoint:
+                Debug.Log("SavePoint action not implemented yet.");
+                break;
+
+            case NPCOptionType.Dialogue:
+                Debug.Log("Dialogue action not implemented yet.");
+                break;
+
+            default:
+                Debug.LogWarning("Unhandled NPC option type: " + option.optionType);
+                break;
+        }
+    }
+
+    private void UpdateOptionMenuText()
+    {
+        if (questionMenuText == null)
+        {
+            Debug.LogError("questionMenuText 尚未指定。");
+            return;
+        }
+
+        TMP_Text menuTMP = questionMenuText.GetComponent<TMP_Text>();
+
+        if (menuTMP == null)
+        {
+            Debug.LogError("questionMenuText 物件上找不到 TMP_Text 元件。");
+            return;
+        }
+
+        if (npcProfile == null || npcProfile.options == null || npcProfile.options.Length == 0)
+        {
+            menuTMP.text = "No options available.";
+            return;
+        }
+
+        string menuText = "";
+
+        for (int i = 0; i < npcProfile.options.Length; i++)
+        {
+            menuText += $"{i + 1}. {npcProfile.options[i].displayText}\n";
+        }
+
+        menuTMP.text = menuText;
     }
 }

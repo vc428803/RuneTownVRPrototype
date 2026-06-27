@@ -16,9 +16,9 @@ MonoBehaviour:
   displayName: Liora
   greetingText: Welcome to Rune Town! How can I help you?
   options:
-  - displayText: Where is the fountain?
+  - displayText: Can you tell me where the fountain is?
     optionType: 1
-    playerMessage: Where is the fountain?
+    playerMessage: Can you tell me where the fountain is?
     targetId: 
   - displayText: Where is the market?
     optionType: 1
