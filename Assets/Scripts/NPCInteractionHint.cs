@@ -5,6 +5,10 @@ using UnityEngine.InputSystem;
 
 public class NPCInteractionHint : MonoBehaviour
 {
+
+    [Header("NPC 資料設定")]
+    [SerializeField] private NPCProfile npcProfile;
+
     [Header("Ray 指到 NPC 時顯示的提示文字")]
     public GameObject talkHintText;
 
@@ -95,6 +99,17 @@ public class NPCInteractionHint : MonoBehaviour
 
         Debug.Log("Sending question to LLM: " + question);
 
+        if (npcProfile == null)
+        {
+            Debug.LogError("NPCProfile 尚未指定，請把 GuideLiora.asset 拖到 Inspector 的 npcProfile 欄位。");
+            isWaitingForLLMReply = false;
+            return;
+        }
+
+        string currentNpcId = npcProfile.npcId;
+
+        Debug.Log("Sending question to LLM. npcId = " + currentNpcId + ", question = " + question);
+
         // 這樣玩家按 1 / 2 / 3 之後，問題選單會自動關閉。
         if (questionMenuText != null)
         {
@@ -113,8 +128,10 @@ public class NPCInteractionHint : MonoBehaviour
             }
         }
 
+
+
         StartCoroutine(llmClient.SendChat(
-            "guide_liora",
+            currentNpcId,
             question,
             reply =>
             {
@@ -159,6 +176,8 @@ public class NPCInteractionHint : MonoBehaviour
                 Debug.Log("isWaitingForLLMReply set to FALSE after error");
             }
         ));
+
+
     }
 
     private void SelectQuestion(string question)
