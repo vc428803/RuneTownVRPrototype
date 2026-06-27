@@ -67,15 +67,88 @@ public class NPCInteractionHint : MonoBehaviour
 
         if (Keyboard.current.digit1Key.wasPressedThisFrame || Keyboard.current.numpad1Key.wasPressedThisFrame)
         {
-            AskLLM("Where is the fountain?");
+            SelectOption(0);
         }
         else if (Keyboard.current.digit2Key.wasPressedThisFrame || Keyboard.current.numpad2Key.wasPressedThisFrame)
         {
-            AskLLM("Where is the market?");
+            SelectOption(1);
         }
         else if (Keyboard.current.digit3Key.wasPressedThisFrame || Keyboard.current.numpad3Key.wasPressedThisFrame)
         {
-            AskLLM("Where is the blacksmith?");
+            SelectOption(2);
+        }
+    }
+
+    private void SelectOption(int optionIndex)
+    {
+        if (npcProfile == null)
+        {
+            Debug.LogError("NPCProfile 尚未指定，請把 NPCProfile asset 拖到 Inspector。");
+            return;
+        }
+
+        if (npcProfile.options == null || npcProfile.options.Length == 0)
+        {
+            Debug.LogError("NPCProfile 沒有設定任何 options。");
+            return;
+        }
+
+        if (optionIndex < 0 || optionIndex >= npcProfile.options.Length)
+        {
+            Debug.LogError("Invalid option index: " + optionIndex);
+            return;
+        }
+
+        NPCOption selectedOption = npcProfile.options[optionIndex];
+
+        Debug.Log("Selected option: " + selectedOption.displayText);
+
+        HandleOption(selectedOption);
+    }
+
+    private void HandleOption(NPCOption option)
+    {
+        switch (option.optionType)
+        {
+            case NPCOptionType.AskLLM:
+                AskLLM(option.playerMessage);
+                break;
+
+            case NPCOptionType.CloseDialogue:
+                CloseDialogue();
+                break;
+
+            case NPCOptionType.Teleport:
+                Debug.Log("Teleport action not implemented yet. TargetId: " + option.targetId);
+                break;
+
+            case NPCOptionType.OpenShop:
+                Debug.Log("OpenShop action not implemented yet. TargetId: " + option.targetId);
+                break;
+
+            case NPCOptionType.OpenStorage:
+                Debug.Log("OpenStorage action not implemented yet.");
+                break;
+
+            case NPCOptionType.StartQuest:
+                Debug.Log("StartQuest action not implemented yet. QuestId: " + option.targetId);
+                break;
+
+            case NPCOptionType.CompleteQuest:
+                Debug.Log("CompleteQuest action not implemented yet. QuestId: " + option.targetId);
+                break;
+
+            case NPCOptionType.SavePoint:
+                Debug.Log("SavePoint action not implemented yet.");
+                break;
+
+            case NPCOptionType.Dialogue:
+                Debug.Log("Dialogue action not implemented yet.");
+                break;
+
+            default:
+                Debug.LogWarning("Unhandled NPC option type: " + option.optionType);
+                break;
         }
     }
 
@@ -286,5 +359,27 @@ public class NPCInteractionHint : MonoBehaviour
         }
 
         questionMenuOpen = true;
+    }
+
+    private void CloseDialogue()
+    {
+        if (questionMenuText != null)
+        {
+            questionMenuText.SetActive(false);
+        }
+
+        if (dialogueText != null)
+        {
+            dialogueText.SetActive(false);
+        }
+
+        if (talkHintText != null)
+        {
+            talkHintText.SetActive(false);
+        }
+
+        questionMenuOpen = false;
+
+        Debug.Log("Dialogue closed.");
     }
 }
