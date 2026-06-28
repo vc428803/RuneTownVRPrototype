@@ -1,10 +1,13 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.InputSystem;
 
 public class NPCInteractionHint : MonoBehaviour
 {
+    [Header("VR 選項按鈕")]
+    [SerializeField] private Button[] optionButtons;
 
     [Header("NPC 資料設定")]
     [SerializeField] private NPCProfile npcProfile;
@@ -55,6 +58,7 @@ public class NPCInteractionHint : MonoBehaviour
             dialogueTMP = dialogueText.GetComponent<TextMeshPro>();
             dialogueText.SetActive(false);
         }
+        SetupOptionButtons();
     }
     private void Update()
     {
@@ -425,5 +429,59 @@ public class NPCInteractionHint : MonoBehaviour
         }
 
         menuTMP.text = menuText;
+    }
+
+    private void SetupOptionButtons()
+    {
+        if (npcProfile == null)
+        {
+            Debug.LogError("NPCProfile 尚未指定，無法設定選項按鈕。");
+            return;
+        }
+
+        if (optionButtons == null || optionButtons.Length == 0)
+        {
+            Debug.LogError("optionButtons 尚未指定，請把 Option_Button_1/2/3 拖到 Inspector。");
+            return;
+        }
+
+        for (int i = 0; i < optionButtons.Length; i++)
+        {
+            Button button = optionButtons[i];
+
+            if (button == null)
+            {
+                Debug.LogWarning("optionButtons[" + i + "] 是空的。");
+                continue;
+            }
+
+            bool hasOption = npcProfile.options != null && i < npcProfile.options.Length;
+
+            button.gameObject.SetActive(hasOption);
+
+            if (!hasOption)
+            {
+                continue;
+            }
+
+            TMP_Text buttonText = button.GetComponentInChildren<TMP_Text>();
+
+            if (buttonText != null)
+            {
+                buttonText.text = npcProfile.options[i].displayText;
+            }
+            else
+            {
+                Debug.LogWarning(button.gameObject.name + " 找不到 TMP_Text 子物件。");
+            }
+
+            int optionIndex = i;
+
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() =>
+            {
+                SelectOption(optionIndex);
+            });
+        }
     }
 }
