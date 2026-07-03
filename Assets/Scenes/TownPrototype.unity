@@ -3524,6 +3524,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c3ccc2ef17331b24f99180fa5ab5415f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NPCInteractionHint
+  optionButtons: []
   npcProfile: {fileID: 11400000, guid: 7c4e46691be513945a8e22668124dd27, type: 2}
   optionMenuCanvas: {fileID: 211561514}
   talkHintText: {fileID: 1799203804}
@@ -7777,7 +7778,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3bea00f9501e89a4dbe51819045a7a48, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LLMClient
-  apiUrl: http://localhost:5062/api/chat
+  aiConnectionSettings: {fileID: 11400000, guid: e9761518803b3424b95027805fc6b9ff, type: 2}
 --- !u!4 &2052176846
 Transform:
   m_ObjectHideFlags: 0
