@@ -169,8 +169,6 @@ public class NPCInteractionHint : MonoBehaviour
             }
         }
 
-
-
         StartCoroutine(llmClient.SendChat(
             currentNpcId,
             question,
@@ -217,8 +215,6 @@ public class NPCInteractionHint : MonoBehaviour
                 Debug.Log("isWaitingForLLMReply set to FALSE after error");
             }
         ));
-
-
     }
 
     private void SelectQuestion(string question)

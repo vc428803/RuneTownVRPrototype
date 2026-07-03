@@ -9,8 +9,8 @@ using UnityEngine.Networking;
 /// </summary>
 public class LLMClient : MonoBehaviour
 {
-    [Header("API Settings")]
-    [SerializeField] private string apiUrl = "http://localhost:5062/api/chat";
+    [Header("AI Connection Settings")]
+    [SerializeField] private AiConnectionSettings aiConnectionSettings;
 
     /// <summary>
     /// 發送給 API 的請求格式：包含 NPC 識別碼與玩家訊息
@@ -50,11 +50,26 @@ public class LLMClient : MonoBehaviour
 
         // 將 C# 物件序列化為 JSON 字串，準備放入 HTTP Body
         string jsonBody = JsonUtility.ToJson(requestData);
-        Debug.Log("LLM API URL: " + apiUrl);
+
+        if (aiConnectionSettings == null)
+        {
+            onError?.Invoke("AiConnectionSettings 尚未指定，請把 AiConnectionSettings.asset 拖到 LLMClient。");
+            yield break;
+        }
+
+        string chatUrl = aiConnectionSettings.GetChatUrl();
+
+        if (chatUrl == "mock://chat")
+        {
+            onSuccess?.Invoke("This is a mock NPC reply. The AI server is not connected.");
+            yield break;
+        }
+
+        Debug.Log("LLM API URL: " + chatUrl);
         Debug.Log("LLM Request Body: " + jsonBody);
 
         // 建立 HTTP POST 請求，using 確保完成後自動釋放資源
-        using (UnityWebRequest request = new UnityWebRequest(apiUrl, "POST"))
+        using (UnityWebRequest request = new UnityWebRequest(chatUrl, "POST"))
         {
             // 將 JSON 字串轉為 UTF-8 位元組陣列，作為上傳內容
             byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonBody);
