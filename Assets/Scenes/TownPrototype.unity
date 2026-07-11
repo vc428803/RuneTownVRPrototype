@@ -3524,7 +3524,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c3ccc2ef17331b24f99180fa5ab5415f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NPCInteractionHint
-  optionButtons: []
+  optionButtons:
+  - {fileID: 1012764922}
+  - {fileID: 1930741725}
+  - {fileID: 1375679509}
   npcProfile: {fileID: 11400000, guid: 7c4e46691be513945a8e22668124dd27, type: 2}
   optionMenuCanvas: {fileID: 211561514}
   talkHintText: {fileID: 1799203804}

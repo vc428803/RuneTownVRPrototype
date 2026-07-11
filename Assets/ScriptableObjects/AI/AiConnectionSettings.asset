@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0da90686e8230db4d9216859973bee58, type: 3}
   m_Name: AiConnectionSettings
   m_EditorClassIdentifier: Assembly-CSharp::AiConnectionSettings
-  providerMode: 0
+  providerMode: 2
   localEditorBaseUrl: http://127.0.0.1:5062
   lanServerBaseUrl: http://192.168.1.50:5062
-  cloudBaseUrl: https://your-cloud-api.com
+  cloudBaseUrl: https://your-api-url.onrender.com
   useMockWhenUnavailable: 1
