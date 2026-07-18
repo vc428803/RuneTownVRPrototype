@@ -77,7 +77,17 @@ public class LLMClient : MonoBehaviour
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);      // 設定上傳處理器：發送 JSON 資料
             request.downloadHandler = new DownloadHandlerBuffer();         // 設定下載處理器：接收回應內容
 
-            request.SetRequestHeader("Content-Type", "application/json"); // 設定標頭：告訴後端這是 JSON 格式
+            request.SetRequestHeader("Content-Type", "application/json");
+
+            // 修改原因：後端已加入 Game API Key 驗證，Unity 必須在每次 API 呼叫時帶上 Header。
+            if (!string.IsNullOrWhiteSpace(aiConnectionSettings.GameApiKey))
+            {
+                request.SetRequestHeader(
+                    "X-Game-Api-Key",
+                    aiConnectionSettings.GameApiKey
+                );
+            }
+
             request.timeout = 30;
 
             // 發送請求並暫停協程，等待網路回應（非同步，不阻塞遊戲主執行緒）

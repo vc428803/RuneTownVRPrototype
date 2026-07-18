@@ -169,8 +169,39 @@ public class NPCInteractionHint : MonoBehaviour
             }
         }
 
+        SendQuestionToCurrentNpc(question);
+
+    }
+
+    /// <summary>
+    /// 將玩家輸入的文字傳送給目前正在互動的 NPC。
+    /// 修改原因：讓選項問題與未來的語音辨識結果共用同一套 LLM 對話流程。
+    /// </summary>
+    /// <param name="question">玩家要詢問 NPC 的文字內容</param>
+    private void SendQuestionToCurrentNpc(string question)
+    {
+        if (llmClient == null)
+        {
+            Debug.LogError("LLMClient 尚未指定。");
+            return;
+        }
+
+        if (npcProfile == null || string.IsNullOrWhiteSpace(npcProfile.npcId))
+        {
+            Debug.LogError("NPCProfile 或 npcId 是空的，無法送出 NPC 對話。");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(question))
+        {
+            Debug.LogWarning("玩家問題是空的，不送出 LLM 請求。");
+            return;
+        }
+
+        Debug.Log("Sending question to NPC: " + question);
+
         StartCoroutine(llmClient.SendChat(
-            currentNpcId,
+            npcProfile.npcId,
             question,
             reply =>
             {
@@ -188,7 +219,8 @@ public class NPCInteractionHint : MonoBehaviour
                     }
                     else
                     {
-                        Debug.LogError("dialogueText 物件上找不到 TMP_Text 元件。請確認你拖的是 Dialogue_Text。");
+                        Debug.LogError(
+                            "dialogueText 物件上找不到 TMP_Text 元件。請確認你拖的是 Dialogue_Text。");
                     }
                 }
 

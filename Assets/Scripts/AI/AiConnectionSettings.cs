@@ -18,6 +18,10 @@ public class AiConnectionSettings : ScriptableObject
     [Header("Cloud API")]
     public string cloudBaseUrl = "https://your-cloud-api.com";
 
+    [Header("Game API Key")]
+    [SerializeField] private string gameApiKey = "";
+    public string GameApiKey => gameApiKey;
+
     [Header("Use Mock Reply")]
     public bool useMockWhenUnavailable = true;
 
