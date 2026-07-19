@@ -67,7 +67,6 @@ public class LLMClient : MonoBehaviour
 
         Debug.Log("LLM API URL: " + chatUrl);
         Debug.Log("LLM Request Body: " + jsonBody);
-
         // 建立 HTTP POST 請求，using 確保完成後自動釋放資源
         using (UnityWebRequest request = new UnityWebRequest(chatUrl, "POST"))
         {
@@ -82,11 +81,32 @@ public class LLMClient : MonoBehaviour
             // 修改原因：後端已加入 Game API Key 驗證，Unity 必須在每次 API 呼叫時帶上 Header。
             if (!string.IsNullOrWhiteSpace(aiConnectionSettings.GameApiKey))
             {
+                Debug.Log(
+    $"Game API Key configured: {!string.IsNullOrWhiteSpace(aiConnectionSettings.GameApiKey)}"
+);
+
+                Debug.Log(
+                    $"Game API Key length: {aiConnectionSettings.GameApiKey?.Length ?? 0}"
+                );
                 request.SetRequestHeader(
                     "X-Game-Api-Key",
                     aiConnectionSettings.GameApiKey
                 );
+
+              
             }
+
+            Debug.Log(
+  "Game API Key configured: " +
+  !string.IsNullOrWhiteSpace(aiConnectionSettings.GameApiKey)
+);
+
+            Debug.Log(
+                "Game API Key length: " +
+                (aiConnectionSettings.GameApiKey == null
+                    ? 0
+                    : aiConnectionSettings.GameApiKey.Length)
+            );
 
             request.timeout = 30;
 
