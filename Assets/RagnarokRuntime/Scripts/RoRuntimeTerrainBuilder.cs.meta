@@ -1,2 +1,18 @@
 fileFormatVersion: 2
 guid: da12a31668fb494478a16c999d31f355
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - testTopTexture: {instanceID: 0}
+  - pronteraAtlas: {instanceID: 0}
+  - prtGrass01Texture: {instanceID: 0}
+  - prtCity01Texture: {instanceID: 0}
+  - prtCity02Texture: {instanceID: 0}
+  - prtCity04Texture: {instanceID: 0}
+  - mapCellData: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
