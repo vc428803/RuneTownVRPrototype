@@ -2557,6 +2557,62 @@ MonoBehaviour:
     m_InputActionReference: {fileID: 0}
     m_ObjectReferenceObject: {fileID: 0}
     m_ManualValue: 0
+--- !u!1 &414179386
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 414179387}
+  - component: {fileID: 414179388}
+  m_Layer: 0
+  m_Name: RO Loader
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &414179387
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 414179386}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &414179388
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 414179386}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da12a31668fb494478a16c999d31f355, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RoRuntimeTerrainBuilder
+  cellSize: 2
+  heightScale: 0.2
+  testTopTexture: {fileID: 0}
+  pronteraAtlas: {fileID: 2800000, guid: a946421c0a381ae4787c8aa2e18a4db6, type: 3}
+  pronteraAtlasLookup: {fileID: 4900000, guid: 61ab820342ca2244cb6f5fa6456cf706, type: 3}
+  prtGrass01Texture: {fileID: 0}
+  prtCity01Texture: {fileID: 0}
+  prtCity02Texture: {fileID: 0}
+  prtCity04Texture: {fileID: 0}
+  mapCellData: {fileID: 4900000, guid: 075c7b122294c4c45afc90c0cf17a5c6, type: 3}
+  mapWidth: 208
+  mapHeight: 160
 --- !u!1 &421702642
 GameObject:
   m_ObjectHideFlags: 0
@@ -7843,3 +7899,4 @@ SceneRoots:
   - {fileID: 1230812828}
   - {fileID: 2052176846}
   - {fileID: 254754842}
+  - {fileID: 414179387}
