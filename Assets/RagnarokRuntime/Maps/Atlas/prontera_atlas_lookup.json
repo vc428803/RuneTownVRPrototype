@@ -1,0 +1,111 @@
+{
+    "mapName": "prontera",
+    "atlasWidth": 1024,
+    "atlasHeight": 2048,
+    "entries": [
+        {
+            "textureName": "pron-ctwr4",
+            "textureIndex": 0,
+            "x": 0.0,
+            "y": 0.0,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_도시01",
+            "textureIndex": 1,
+            "x": 0.25390625,
+            "y": 0.0,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_도시02",
+            "textureIndex": 2,
+            "x": 0.5078125,
+            "y": 0.0,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_도시03",
+            "textureIndex": 3,
+            "x": 0.0,
+            "y": 0.126953125,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_도시04",
+            "textureIndex": 4,
+            "x": 0.25390625,
+            "y": 0.126953125,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_도시05",
+            "textureIndex": 5,
+            "x": 0.5078125,
+            "y": 0.126953125,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_도시08",
+            "textureIndex": 6,
+            "x": 0.0,
+            "y": 0.25390625,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_초원01",
+            "textureIndex": 7,
+            "x": 0.25390625,
+            "y": 0.25390625,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_초원06",
+            "textureIndex": 8,
+            "x": 0.5078125,
+            "y": 0.25390625,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_초원08",
+            "textureIndex": 9,
+            "x": 0.0,
+            "y": 0.380859375,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_초원09",
+            "textureIndex": 10,
+            "x": 0.25390625,
+            "y": 0.380859375,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "prt_흙03",
+            "textureIndex": 11,
+            "x": 0.5078125,
+            "y": 0.380859375,
+            "width": 0.25,
+            "height": 0.125
+        },
+        {
+            "textureName": "transparent",
+            "textureIndex": 12,
+            "x": 0.76171875,
+            "y": 0.0,
+            "width": 0.0078125,
+            "height": 0.00390625
+        }
+    ]
+}
