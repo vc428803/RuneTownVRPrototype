@@ -59,7 +59,7 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
 
     // 修改原因：
     // Reference Project 已產生 prontera_atlas.png。
-    // prontera.bytes 內的 UV 已是 Atlas UV，因此所有 Top Mesh 應共用這張 Atlas。
+    // prontera.bytes 內保存的是各原始貼圖的局部 UV；Runtime 會依 Lookup Rect Remap 到 Atlas。
     [SerializeField] private Texture2D pronteraAtlas;
 
     // 修改原因：
@@ -90,6 +90,13 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
     // 修改原因：保存完整地圖 Cell 資料，
     // 供下一階段建立 Runtime Mesh 使用。
     private RoRuntimeCell[] runtimeCells;
+
+    // 修改原因：
+    // Reference Project 會先計算每一格 Top Quad 的 Cell Normal，
+    // 再只對高度真正相連的鄰格做頂點法線平均。
+    // Runtime 不再使用 mesh.RecalculateNormals()，避免每一格獨立計算法線造成規律明暗條紋。
+    private Vector3[] runtimeCellNormals;
+    private Vector3[][] runtimeTopNormals;
 
     private void Start()
     {
@@ -223,11 +230,534 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
             );
 
             // 修改原因：
+            // 先完整對齊 Reference Project 的 PrepareTopFaces() + SmoothNormals()。
+            // 法線必須以整張地圖資料計算，不能在每個 Chunk 內各自 RecalculateNormals()。
+            PrepareRuntimeTopNormals();
+
+            // 修改原因：
             // 不再建立單一 64 × 64 測試區域。
             // 改為沿用 RagnarokRebuildTcp 的 16 × 16 Chunk 架構，
             // 建立完整 208 × 160 Prontera Top Terrain。
             BuildFullTopChunkSystem();
         }
+    }
+
+    // 修改原因：
+    // 驗證 prontera.bytes 內保存的 Top UV 是單張貼圖的 0～1 UV，
+    // 還是已經 Remap 過的 Atlas UV。此方法只輸出一次摘要，不修改 Mesh。
+    private void DiagnoseTopUvData()
+    {
+        if (runtimeCells == null ||
+            runtimeCells.Length == 0)
+        {
+            return;
+        }
+
+        float minU = float.MaxValue;
+        float maxU = float.MinValue;
+        float minV = float.MaxValue;
+        float maxV = float.MinValue;
+
+        int enabledTopCount = 0;
+        int uvValueCount = 0;
+        int outsideZeroToOneCount = 0;
+
+        RoRuntimeCell sampleCell = null;
+        int sampleCellIndex = -1;
+
+        for (int cellIndex = 0;
+             cellIndex < runtimeCells.Length;
+             cellIndex++)
+        {
+            RoRuntimeCell cell =
+                runtimeCells[cellIndex];
+
+            if (cell == null ||
+                cell.Top == null ||
+                !cell.Top.Enabled ||
+                cell.Top.UVs == null ||
+                cell.Top.UVs.Length != 4)
+            {
+                continue;
+            }
+
+            enabledTopCount++;
+
+            if (sampleCell == null &&
+                !string.IsNullOrEmpty(cell.Top.Texture))
+            {
+                sampleCell = cell;
+                sampleCellIndex = cellIndex;
+            }
+
+            for (int i = 0;
+                 i < cell.Top.UVs.Length;
+                 i++)
+            {
+                Vector2 uv =
+                    cell.Top.UVs[i];
+
+                minU = Mathf.Min(minU, uv.x);
+                maxU = Mathf.Max(maxU, uv.x);
+                minV = Mathf.Min(minV, uv.y);
+                maxV = Mathf.Max(maxV, uv.y);
+
+                if (uv.x < 0f ||
+                    uv.x > 1f ||
+                    uv.y < 0f ||
+                    uv.y > 1f)
+                {
+                    outsideZeroToOneCount++;
+                }
+
+                uvValueCount++;
+            }
+        }
+
+        Debug.Log(
+            $"RoRuntimeTerrainBuilder UV 診斷：" +
+            $"Enabled Top = {enabledTopCount}，" +
+            $"UV Values = {uvValueCount}，" +
+            $"U Range = {minU} ～ {maxU}，" +
+            $"V Range = {minV} ～ {maxV}，" +
+            $"超出 0～1 數量 = {outsideZeroToOneCount}。",
+            this
+        );
+
+        if (sampleCell == null)
+        {
+            Debug.LogWarning(
+                "RoRuntimeTerrainBuilder UV 診斷：找不到可用的 Top Tile 樣本。",
+                this
+            );
+
+            return;
+        }
+
+        Rect sampleRect =
+            GetAtlasRect(sampleCell.Top.Texture);
+
+        Vector2 remapped0 =
+            RemapUV(sampleCell.Top.UVs[0], sampleRect);
+
+        Vector2 remapped1 =
+            RemapUV(sampleCell.Top.UVs[1], sampleRect);
+
+        Vector2 remapped2 =
+            RemapUV(sampleCell.Top.UVs[2], sampleRect);
+
+        Vector2 remapped3 =
+            RemapUV(sampleCell.Top.UVs[3], sampleRect);
+
+        int sampleX =
+            sampleCellIndex % mapWidth;
+
+        int sampleY =
+            sampleCellIndex / mapWidth;
+
+        Debug.Log(
+            $"RoRuntimeTerrainBuilder UV 樣本：" +
+            $"Cell = ({sampleX}, {sampleY})，" +
+            $"Texture = {sampleCell.Top.Texture}，" +
+            $"Rect = {sampleRect}，" +
+            $"Raw = [{sampleCell.Top.UVs[0]}, {sampleCell.Top.UVs[1]}, " +
+            $"{sampleCell.Top.UVs[2]}, {sampleCell.Top.UVs[3]}]，" +
+            $"Remapped = [{remapped0}, {remapped1}, {remapped2}, {remapped3}]。",
+            this
+        );
+    }
+
+
+    // 修改原因：
+    // 完整對齊 Reference Project 的 RoMapSharedMeshData.PrepareTopFaces() 與 SmoothNormals()。
+    // 第一階段先計算每一格 Quad 的 Cell Normal；第二階段只平均高度相連的鄰格法線。
+    private void PrepareRuntimeTopNormals()
+    {
+        int cellCount = mapWidth * mapHeight;
+
+        runtimeCellNormals = new Vector3[cellCount];
+        runtimeTopNormals = new Vector3[cellCount][];
+
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                int cellIndex = x + y * mapWidth;
+                RoRuntimeCell cell = runtimeCells[cellIndex];
+
+                if (cell == null)
+                {
+                    runtimeCellNormals[cellIndex] = Vector3.up;
+                    runtimeTopNormals[cellIndex] = CreateRepeatedNormals(Vector3.up);
+                    continue;
+                }
+
+                Vector4 heights = cell.Heights;
+
+                Vector3 p0 = new Vector3(
+                    (x + 0f) * cellSize,
+                    heights[0] * heightScale,
+                    (y + 1f) * cellSize
+                );
+
+                Vector3 p1 = new Vector3(
+                    (x + 1f) * cellSize,
+                    heights[1] * heightScale,
+                    (y + 1f) * cellSize
+                );
+
+                Vector3 p2 = new Vector3(
+                    (x + 0f) * cellSize,
+                    heights[2] * heightScale,
+                    (y + 0f) * cellSize
+                );
+
+                Vector3 p3 = new Vector3(
+                    (x + 1f) * cellSize,
+                    heights[3] * heightScale,
+                    (y + 0f) * cellSize
+                );
+
+                runtimeCellNormals[cellIndex] =
+                    CalculateQuadNormal(p0, p1, p2, p3);
+            }
+        }
+
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                int cellIndex = x + y * mapWidth;
+                Vector3 initialNormal = runtimeCellNormals[cellIndex];
+
+                runtimeTopNormals[cellIndex] = new[]
+                {
+                    AverageConnectedNormal(x, y, 0, initialNormal),
+                    AverageConnectedNormal(x, y, 1, initialNormal),
+                    AverageConnectedNormal(x, y, 2, initialNormal),
+                    AverageConnectedNormal(x, y, 3, initialNormal)
+                };
+            }
+        }
+
+        Debug.Log(
+            $"RoRuntimeTerrainBuilder: Top 平滑法線建立完成。" +
+            $"Cells = {cellCount}，" +
+            $"規則 = 僅平均高度相連的鄰格。",
+            this
+        );
+    }
+
+    // 修改原因：
+    // Reference 的 CalcQuadNormal 會以同一個 Quad 的兩個 Triangle 建立單一 Cell Normal。
+    private static Vector3 CalculateQuadNormal(
+        Vector3 p0,
+        Vector3 p1,
+        Vector3 p2,
+        Vector3 p3)
+    {
+        Vector3 normalA =
+            Vector3.Cross(p1 - p0, p3 - p0);
+
+        Vector3 normalB =
+            Vector3.Cross(p3 - p0, p2 - p0);
+
+        Vector3 normal = normalA + normalB;
+
+        if (normal.sqrMagnitude <= Mathf.Epsilon)
+        {
+            return Vector3.up;
+        }
+
+        return normal.normalized;
+    }
+
+    private static Vector3[] CreateRepeatedNormals(Vector3 normal)
+    {
+        return new[]
+        {
+            normal,
+            normal,
+            normal,
+            normal
+        };
+    }
+
+    // 修改原因：
+    // 完整對齊 Reference 的 GetNeighborsForVertex()：
+    // Vertex 0 = 左上、1 = 右上、2 = 左下、3 = 右下。
+    private static int[] GetNeighborIdsForVertex(int vertexId)
+    {
+        switch (vertexId)
+        {
+            case 0:
+                return new[] { 0, 1, 3 };
+
+            case 1:
+                return new[] { 1, 2, 4 };
+
+            case 2:
+                return new[] { 3, 5, 6 };
+
+            case 3:
+                return new[] { 4, 6, 7 };
+
+            default:
+                throw new System.ArgumentOutOfRangeException(
+                    nameof(vertexId),
+                    vertexId,
+                    "Invalid vertex id."
+                );
+        }
+    }
+
+    // 修改原因：
+    // Reference 的鄰居順序為：
+    // 0 左上、1 上、2 右上、3 左、4 右、5 左下、6 下、7 右下。
+    private static Vector2Int GetNeighborDirection(int neighborId)
+    {
+        switch (neighborId)
+        {
+            case 0:
+                return new Vector2Int(-1, 1);
+
+            case 1:
+                return new Vector2Int(0, 1);
+
+            case 2:
+                return new Vector2Int(1, 1);
+
+            case 3:
+                return new Vector2Int(-1, 0);
+
+            case 4:
+                return new Vector2Int(1, 0);
+
+            case 5:
+                return new Vector2Int(-1, -1);
+
+            case 6:
+                return new Vector2Int(0, -1);
+
+            case 7:
+                return new Vector2Int(1, -1);
+
+            default:
+                throw new System.ArgumentOutOfRangeException(
+                    nameof(neighborId),
+                    neighborId,
+                    "Invalid neighbor id."
+                );
+        }
+    }
+
+    private Vector3 AverageConnectedNormal(
+        int x,
+        int y,
+        int vertexId,
+        Vector3 initialNormal)
+    {
+        Vector3 normal = initialNormal;
+        int count = 1;
+
+        int[] neighborIds =
+            GetNeighborIdsForVertex(vertexId);
+
+        for (int i = 0; i < neighborIds.Length; i++)
+        {
+            Vector2Int relation =
+                GetNeighborDirection(neighborIds[i]);
+
+            int neighborX = x + relation.x;
+            int neighborY = y + relation.y;
+
+            if (!IsInsideMap(neighborX, neighborY))
+            {
+                continue;
+            }
+
+            if (!IsNeighborVertexConnected(
+                    x,
+                    y,
+                    neighborX,
+                    neighborY,
+                    relation,
+                    vertexId))
+            {
+                continue;
+            }
+
+            int neighborIndex =
+                neighborX + neighborY * mapWidth;
+
+            normal += runtimeCellNormals[neighborIndex];
+            count++;
+        }
+
+        Vector3 averagedNormal = normal / count;
+
+        if (averagedNormal.sqrMagnitude <= Mathf.Epsilon)
+        {
+            return Vector3.up;
+        }
+
+        return averagedNormal.normalized;
+    }
+
+    private bool IsInsideMap(int x, int y)
+    {
+        return x >= 0 &&
+               x < mapWidth &&
+               y >= 0 &&
+               y < mapHeight;
+    }
+
+    // 修改原因：
+    // 完整搬入 Reference RoMapData.IsNeighborVertexConnected() 的高度連接判斷。
+    private bool IsNeighborVertexConnected(
+        int originX,
+        int originY,
+        int neighborX,
+        int neighborY,
+        Vector2Int relation,
+        int vertexId)
+    {
+        RoRuntimeCell origin =
+            runtimeCells[originX + originY * mapWidth];
+
+        RoRuntimeCell neighbor =
+            runtimeCells[neighborX + neighborY * mapWidth];
+
+        if (origin == null || neighbor == null)
+        {
+            return false;
+        }
+
+        Vector4 mask =
+            GetConnectedNeighborHeightMask(
+                origin.Heights,
+                neighbor.Heights,
+                relation
+            );
+
+        Vector4 flipped =
+            FlipHeightVector(mask, relation);
+
+        return flipped[vertexId] > 0f;
+    }
+
+    private static Vector4 GetConnectedNeighborHeightMask(
+        Vector4 origin,
+        Vector4 neighbor,
+        Vector2Int relation)
+    {
+        Vector4 flipped =
+            FlipHeightVector(origin, relation);
+
+        if (relation.x == -1 && relation.y == -1)
+        {
+            return CloseEnough(flipped[1], neighbor[1])
+                ? new Vector4(0f, 1f, 0f, 0f)
+                : Vector4.zero;
+        }
+
+        if (relation.x == 1 && relation.y == -1)
+        {
+            return CloseEnough(flipped[0], neighbor[0])
+                ? new Vector4(1f, 0f, 0f, 0f)
+                : Vector4.zero;
+        }
+
+        if (relation.x == -1 && relation.y == 1)
+        {
+            return CloseEnough(flipped[3], neighbor[3])
+                ? new Vector4(0f, 0f, 0f, 1f)
+                : Vector4.zero;
+        }
+
+        if (relation.x == 1 && relation.y == 1)
+        {
+            return CloseEnough(flipped[2], neighbor[2])
+                ? new Vector4(0f, 0f, 1f, 0f)
+                : Vector4.zero;
+        }
+
+        if (relation.x == -1)
+        {
+            return new Vector4(
+                0f,
+                CloseEnough(flipped[1], neighbor[1]) ? 1f : 0f,
+                0f,
+                CloseEnough(flipped[3], neighbor[3]) ? 1f : 0f
+            );
+        }
+
+        if (relation.x == 1)
+        {
+            return new Vector4(
+                CloseEnough(flipped[0], neighbor[0]) ? 1f : 0f,
+                0f,
+                CloseEnough(flipped[2], neighbor[2]) ? 1f : 0f,
+                0f
+            );
+        }
+
+        if (relation.y == -1)
+        {
+            return new Vector4(
+                CloseEnough(flipped[0], neighbor[0]) ? 1f : 0f,
+                CloseEnough(flipped[1], neighbor[1]) ? 1f : 0f,
+                0f,
+                0f
+            );
+        }
+
+        if (relation.y == 1)
+        {
+            return new Vector4(
+                0f,
+                0f,
+                CloseEnough(flipped[2], neighbor[2]) ? 1f : 0f,
+                CloseEnough(flipped[3], neighbor[3]) ? 1f : 0f
+            );
+        }
+
+        return Vector4.zero;
+    }
+
+    private static Vector4 FlipHeightVector(
+        Vector4 vector,
+        Vector2Int relation)
+    {
+        if (Mathf.Abs(relation.x) == 1)
+        {
+            vector = new Vector4(
+                vector[1],
+                vector[0],
+                vector[3],
+                vector[2]
+            );
+        }
+
+        if (Mathf.Abs(relation.y) == 1)
+        {
+            vector = new Vector4(
+                vector[2],
+                vector[3],
+                vector[0],
+                vector[1]
+            );
+        }
+
+        return vector;
+    }
+
+    // 修改原因：
+    // Reference 使用 MathHelper.CloseEnough()。
+    // Runtime 以小幅絕對誤差比較序列化後的 float 高度，避免直接使用 ==。
+    private static bool CloseEnough(float a, float b)
+    {
+        return Mathf.Abs(a - b) <= 0.0001f;
     }
 
     // 修改原因：
@@ -333,10 +863,15 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
         List<Vector2> uvs =
             new List<Vector2>();
 
+        List<Vector3> normals =
+            new List<Vector3>();
+
         List<Color> colors =
             new List<Color>();
 
         int topTileCount = 0;
+        int rightFaceCount = 0;
+        int frontFaceCount = 0;
 
         for (int y = startY; y < endY; y++)
         {
@@ -348,16 +883,11 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
                 RoRuntimeCell cell =
                     runtimeCells[cellIndex];
 
-                if (cell == null ||
-                    cell.Top == null ||
-                    !cell.Top.Enabled)
+                if (cell == null)
                 {
                     continue;
                 }
 
-                // 修改原因：
-                // Reference Project 的 RoMapChunk Mesh 使用局部座標。
-                // Chunk GameObject 自己負責整張地圖中的位置。
                 int localX =
                     x - startX;
 
@@ -367,9 +897,16 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
                 Vector4 heights =
                     cell.Heights;
 
+                // =========================
+                // Top
+                // =========================
+
                 // 修改原因：
-                // 完整沿用已驗證的頂點順序：
-                // 0 = 左上、1 = 右上、2 = 左下、3 = 右下。
+                // 完整對齊 Reference Project 的：
+                // if (true) // always draw top cell, no matter what
+                //
+                // 即使 Top Tile 未啟用，也必須建立幾何面；
+                // 未啟用或不存在的 Top 會使用 transparent Atlas Rect。
                 Vector3 p0 = new Vector3(
                     (localX + 0f) * cellSize,
                     heights[0] * heightScale,
@@ -394,56 +931,236 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
                     (localY + 0f) * cellSize
                 );
 
-                int vertexStartIndex =
-                    vertices.Count;
+                RoRuntimeTile topTile =
+                    cell.Top;
 
-                vertices.Add(p0);
-                vertices.Add(p1);
-                vertices.Add(p2);
-                vertices.Add(p3);
+                Color topColor =
+                    topTile != null
+                        ? topTile.Color
+                        : Color.white;
 
-                // 修改原因：
-                // 完整沿用 Reference Project 已驗證的 Triangle 順序。
-                triangles.Add(vertexStartIndex + 0);
-                triangles.Add(vertexStartIndex + 1);
-                triangles.Add(vertexStartIndex + 3);
-
-                triangles.Add(vertexStartIndex + 3);
-                triangles.Add(vertexStartIndex + 2);
-                triangles.Add(vertexStartIndex + 0);
-
-                // 修改原因：
-                // prontera.bytes 內保存的是單張貼圖的 0～1 原始 UV。
-                // 必須依照 cell.Top.Texture 找到其 Atlas Rect，再完成 Remap。
-                Rect atlasRect =
-                    GetAtlasRect(cell.Top.Texture);
-
-                if (cell.Top.UVs != null &&
-                    cell.Top.UVs.Length == 4)
-                {
-                    uvs.Add(RemapUV(cell.Top.UVs[0], atlasRect));
-                    uvs.Add(RemapUV(cell.Top.UVs[1], atlasRect));
-                    uvs.Add(RemapUV(cell.Top.UVs[2], atlasRect));
-                    uvs.Add(RemapUV(cell.Top.UVs[3], atlasRect));
-                }
-                else
-                {
-                    uvs.Add(RemapUV(new Vector2(0f, 1f), atlasRect));
-                    uvs.Add(RemapUV(new Vector2(1f, 1f), atlasRect));
-                    uvs.Add(RemapUV(new Vector2(0f, 0f), atlasRect));
-                    uvs.Add(RemapUV(new Vector2(1f, 0f), atlasRect));
-                }
-
-                colors.Add(cell.Top.Color);
-                colors.Add(cell.Top.Color);
-                colors.Add(cell.Top.Color);
-                colors.Add(cell.Top.Color);
+                AddTerrainQuad(
+                    vertices,
+                    triangles,
+                    uvs,
+                    normals,
+                    colors,
+                    p0,
+                    p1,
+                    p2,
+                    p3,
+                    topTile,
+                    runtimeTopNormals[cellIndex],
+                    new[]
+                    {
+                        topColor,
+                        topColor,
+                        topColor,
+                        topColor
+                    }
+                );
 
                 topTileCount++;
+
+                // =========================
+                // Right
+                // =========================
+
+                if (cell.Right != null &&
+                    cell.Right.Enabled &&
+                    x + 1 < mapWidth)
+                {
+                    RoRuntimeCell rightNeighbor =
+                        runtimeCells[x + 1 + y * mapWidth];
+
+                    if (rightNeighbor != null)
+                    {
+                        Vector3 r1 = new Vector3(
+                            (localX + 1f) * cellSize,
+                            heights[1] * heightScale,
+                            (localY + 1f) * cellSize
+                        );
+
+                        Vector3 r2 = new Vector3(
+                            (localX + 1f) * cellSize,
+                            rightNeighbor.Heights[0] * heightScale,
+                            (localY + 1f) * cellSize
+                        );
+
+                        Vector3 r3 = new Vector3(
+                            (localX + 1f) * cellSize,
+                            heights[3] * heightScale,
+                            (localY + 0f) * cellSize
+                        );
+
+                        Vector3 r4 = new Vector3(
+                            (localX + 1f) * cellSize,
+                            rightNeighbor.Heights[2] * heightScale,
+                            (localY + 0f) * cellSize
+                        );
+
+                        Color upperColor =
+                            Color.white;
+
+                        if (x + 1 < mapWidth &&
+                            y + 1 < mapHeight)
+                        {
+                            RoRuntimeCell northEastCell =
+                                runtimeCells[
+                                    x + 1 +
+                                    (y + 1) * mapWidth
+                                ];
+
+                            if (northEastCell != null &&
+                                northEastCell.Top != null)
+                            {
+                                upperColor =
+                                    northEastCell.Top.Color;
+                            }
+                        }
+
+                        Color lowerColor =
+                            Color.white;
+
+                        if (rightNeighbor.Top != null)
+                        {
+                            lowerColor =
+                                rightNeighbor.Top.Color;
+                        }
+
+                        float sideAlpha =
+                            cell.Right.IsUnlit
+                                ? 0f
+                                : 1f;
+
+                        upperColor.a = sideAlpha;
+                        lowerColor.a = sideAlpha;
+
+                        AddTerrainQuad(
+                            vertices,
+                            triangles,
+                            uvs,
+                            normals,
+                            colors,
+                            r1,
+                            r2,
+                            r3,
+                            r4,
+                            cell.Right,
+                            null,
+                            new[]
+                            {
+                                upperColor,
+                                upperColor,
+                                lowerColor,
+                                lowerColor
+                            }
+                        );
+
+                        rightFaceCount++;
+                    }
+                }
+
+                // =========================
+                // Front
+                // =========================
+
+                if (cell.Front != null &&
+                    cell.Front.Enabled &&
+                    y - 1 >= 0)
+                {
+                    RoRuntimeCell frontNeighbor =
+                        runtimeCells[
+                            x +
+                            (y - 1) * mapWidth
+                        ];
+
+                    if (frontNeighbor != null)
+                    {
+                        Vector3 f1 = new Vector3(
+                            (localX + 0f) * cellSize,
+                            heights[2] * heightScale,
+                            (localY + 0f) * cellSize
+                        );
+
+                        Vector3 f2 = new Vector3(
+                            (localX + 1f) * cellSize,
+                            heights[3] * heightScale,
+                            (localY + 0f) * cellSize
+                        );
+
+                        Vector3 f3 = new Vector3(
+                            (localX + 0f) * cellSize,
+                            frontNeighbor.Heights[0] * heightScale,
+                            (localY + 0f) * cellSize
+                        );
+
+                        Vector3 f4 = new Vector3(
+                            (localX + 1f) * cellSize,
+                            frontNeighbor.Heights[1] * heightScale,
+                            (localY + 0f) * cellSize
+                        );
+
+                        Color leftColor =
+                            cell.Top != null
+                                ? cell.Top.Color
+                                : Color.white;
+
+                        Color rightColor =
+                            Color.white;
+
+                        if (x + 1 < mapWidth)
+                        {
+                            RoRuntimeCell eastCell =
+                                runtimeCells[
+                                    x + 1 +
+                                    y * mapWidth
+                                ];
+
+                            if (eastCell != null &&
+                                eastCell.Top != null)
+                            {
+                                rightColor =
+                                    eastCell.Top.Color;
+                            }
+                        }
+
+                        float sideAlpha =
+                            cell.Front.IsUnlit
+                                ? 0f
+                                : 1f;
+
+                        leftColor.a = sideAlpha;
+                        rightColor.a = sideAlpha;
+
+                        AddTerrainQuad(
+                            vertices,
+                            triangles,
+                            uvs,
+                            normals,
+                            colors,
+                            f1,
+                            f2,
+                            f3,
+                            f4,
+                            cell.Front,
+                            null,
+                            new[]
+                            {
+                                leftColor,
+                                rightColor,
+                                leftColor,
+                                rightColor
+                            }
+                        );
+
+                        frontFaceCount++;
+                    }
+                }
             }
         }
 
-        if (topTileCount == 0)
+        if (vertices.Count == 0)
         {
             return 0;
         }
@@ -453,8 +1170,6 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
 
         chunkObject.transform.SetParent(parent, false);
 
-        // 修改原因：
-        // Mesh 使用局部座標，Chunk GameObject 再移到正確地圖位置。
         chunkObject.transform.localPosition =
             new Vector3(
                 startX * cellSize,
@@ -470,21 +1185,35 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
 
         Mesh mesh = new Mesh
         {
-            name = $"TopChunkMesh_{chunkX}_{chunkY}"
+            name = $"TerrainChunkMesh_{chunkX}_{chunkY}"
         };
 
         mesh.SetVertices(vertices);
         mesh.SetTriangles(triangles, 0);
         mesh.SetUVs(0, uvs);
+        mesh.SetNormals(normals);
         mesh.SetColors(colors);
 
-        mesh.RecalculateNormals();
+        // 修改原因：
+        // Top 使用整張地圖預先計算的平滑法線；側面使用各自的平面法線。
+        // 不可再呼叫 RecalculateNormals()，否則會覆蓋 Reference 對齊結果。
         mesh.RecalculateBounds();
 
-        meshFilter.sharedMesh = mesh;
+        meshFilter.sharedMesh =
+            mesh;
 
+        // 修改原因：
+        // 優先使用從 Reference MapShaderAccurate 簡化而來的
+        // Runtime URP Shader，以保留 Alpha Cutoff、Vertex Color、
+        // 雙面顯示及主要光源計算。
         Shader shader =
-            Shader.Find("Universal Render Pipeline/Lit");
+            Shader.Find("Custom/RuntimeMapShaderAccurate");
+
+        if (shader == null)
+        {
+            shader =
+                Shader.Find("Universal Render Pipeline/Lit");
+        }
 
         if (shader == null)
         {
@@ -513,32 +1242,164 @@ public class RoRuntimeTerrainBuilder : MonoBehaviour
             name = "Prontera_Atlas_Material"
         };
 
-        if (pronteraAtlas != null)
+        if (material.HasProperty("_BaseMap"))
         {
-            if (material.HasProperty("_BaseMap"))
-            {
-                material.SetTexture(
-                    "_BaseMap",
-                    pronteraAtlas
-                );
-            }
-            else if (material.HasProperty("_MainTex"))
-            {
-                material.SetTexture(
-                    "_MainTex",
-                    pronteraAtlas
-                );
-            }
-            else
-            {
-                material.mainTexture =
-                    pronteraAtlas;
-            }
+            material.SetTexture(
+                "_BaseMap",
+                pronteraAtlas
+            );
         }
+        else if (material.HasProperty("_MainTex"))
+        {
+            material.SetTexture(
+                "_MainTex",
+                pronteraAtlas
+            );
+        }
+        else
+        {
+            material.mainTexture =
+                pronteraAtlas;
+        }
+
+        if (material.HasProperty("_Color"))
+        {
+            material.SetColor(
+                "_Color",
+                Color.white
+            );
+        }
+
+        if (material.HasProperty("_Cutoff"))
+        {
+            material.SetFloat(
+                "_Cutoff",
+                0.5f
+            );
+        }
+
+        if (material.HasProperty("_AmbientStrength"))
+        {
+            material.SetFloat(
+                "_AmbientStrength",
+                0.65f
+            );
+        }
+
         meshRenderer.sharedMaterial =
             material;
 
+        Debug.Log(
+            $"RoRuntimeTerrainBuilder: Chunk{chunkX}-{chunkY} 建立完成。" +
+            $"Top = {topTileCount}，" +
+            $"Right = {rightFaceCount}，" +
+            $"Front = {frontFaceCount}。",
+            this
+        );
+
         return topTileCount;
+    }
+
+    // 修改原因：
+    // Top、Right、Front 都使用相同的四頂點與 Triangle 寫入流程，
+    // 並完整套用 Reference Project 的 Atlas UV Remap。
+    private void AddTerrainQuad(
+        List<Vector3> vertices,
+        List<int> triangles,
+        List<Vector2> uvs,
+        List<Vector3> normals,
+        List<Color> colors,
+        Vector3 vertex0,
+        Vector3 vertex1,
+        Vector3 vertex2,
+        Vector3 vertex3,
+        RoRuntimeTile tile,
+        Vector3[] quadNormals,
+        Color[] quadColors)
+    {
+        int vertexStartIndex =
+            vertices.Count;
+
+        vertices.Add(vertex0);
+        vertices.Add(vertex1);
+        vertices.Add(vertex2);
+        vertices.Add(vertex3);
+
+        triangles.Add(vertexStartIndex + 0);
+        triangles.Add(vertexStartIndex + 1);
+        triangles.Add(vertexStartIndex + 3);
+
+        triangles.Add(vertexStartIndex + 3);
+        triangles.Add(vertexStartIndex + 2);
+        triangles.Add(vertexStartIndex + 0);
+
+        // 修改原因：
+        // 完整對齊 TranslateTileTextureUVs(Tile tile)：
+        // Tile 不存在或未啟用時，一律使用 transparent 貼圖區域。
+        string textureName =
+            tile != null && tile.Enabled
+                ? tile.Texture
+                : "transparent";
+
+        Rect atlasRect =
+            GetAtlasRect(textureName);
+
+        if (tile != null &&
+            tile.UVs != null &&
+            tile.UVs.Length == 4)
+        {
+            uvs.Add(RemapUV(tile.UVs[0], atlasRect));
+            uvs.Add(RemapUV(tile.UVs[1], atlasRect));
+            uvs.Add(RemapUV(tile.UVs[2], atlasRect));
+            uvs.Add(RemapUV(tile.UVs[3], atlasRect));
+        }
+        else
+        {
+            uvs.Add(RemapUV(new Vector2(0f, 1f), atlasRect));
+            uvs.Add(RemapUV(new Vector2(1f, 1f), atlasRect));
+            uvs.Add(RemapUV(new Vector2(0f, 0f), atlasRect));
+            uvs.Add(RemapUV(new Vector2(1f, 0f), atlasRect));
+        }
+
+        if (quadNormals != null &&
+            quadNormals.Length == 4)
+        {
+            normals.Add(quadNormals[0]);
+            normals.Add(quadNormals[1]);
+            normals.Add(quadNormals[2]);
+            normals.Add(quadNormals[3]);
+        }
+        else
+        {
+            Vector3 flatNormal =
+                CalculateQuadNormal(
+                    vertex0,
+                    vertex1,
+                    vertex2,
+                    vertex3
+                );
+
+            normals.Add(flatNormal);
+            normals.Add(flatNormal);
+            normals.Add(flatNormal);
+            normals.Add(flatNormal);
+        }
+
+        if (quadColors != null &&
+            quadColors.Length == 4)
+        {
+            colors.Add(quadColors[0]);
+            colors.Add(quadColors[1]);
+            colors.Add(quadColors[2]);
+            colors.Add(quadColors[3]);
+        }
+        else
+        {
+            colors.Add(Color.white);
+            colors.Add(Color.white);
+            colors.Add(Color.white);
+            colors.Add(Color.white);
+        }
     }
 
     // 修改原因：
