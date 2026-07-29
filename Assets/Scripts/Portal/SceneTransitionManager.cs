@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.XR.Interaction.Toolkit.Inputs;
 using Unity.XR.CoreUtils;
 
 public class SceneTransitionManager : MonoBehaviour
@@ -66,8 +67,73 @@ public class SceneTransitionManager : MonoBehaviour
         yield return null;
 
         MovePlayerToSpawnPoint();
+
+        // 修改原因：
+        // 新 Scene 載入後，XR Interaction Toolkit 與 Input System
+        // 仍可能繼續進行初始化。若立即重啟 Input Action Manager，
+        // 後續初始化可能再次停用 Input Actions。
+        // 因此先等待一秒，再重新啟用輸入。
+        yield return new WaitForSecondsRealtime(1f);
+
+        yield return RestartInputActionManager();
     }
 
+    private IEnumerator RestartInputActionManager()
+    {
+        // 修改原因：
+        // 不再使用 FindFirstObjectByType<InputActionManager>()，
+        // 避免 Scene 切換期間抓到新 Scene 內其他或即將被刪除的
+        // Input Action Manager。
+        // 改成從 DontDestroyOnLoad 保留下來的 PersistentPlayer 底下尋找，
+        // 確保操作的是玩家實際使用的 Input Action Manager。
+        PersistentPlayer persistentPlayer =
+            FindFirstObjectByType<PersistentPlayer>();
+
+        if (persistentPlayer == null)
+        {
+            Debug.LogWarning(
+                "[SceneTransitionManager] 找不到 PersistentPlayer，無法重新啟用輸入。"
+            );
+            yield break;
+        }
+
+        InputActionManager inputActionManager =
+            persistentPlayer.GetComponentInChildren<InputActionManager>(
+                true
+            );
+
+        if (inputActionManager == null)
+        {
+            Debug.LogWarning(
+                "[SceneTransitionManager] PersistentPlayer 底下找不到 Input Action Manager。"
+            );
+            yield break;
+        }
+
+        Debug.Log(
+            $"[SceneTransitionManager] 準備重新啟用 Input Action Manager：" +
+            $"{inputActionManager.gameObject.name}，" +
+            $"Instance ID：{inputActionManager.GetInstanceID()}"
+        );
+
+        // 修改原因：
+        // 模擬 Inspector 中手動取消勾選 Input Action Manager。
+        inputActionManager.enabled = false;
+
+        // 修改原因：
+        // 等待一個 Frame，確保 OnDisable() 與 Input Actions 停用流程完成。
+        yield return null;
+
+        // 修改原因：
+        // 模擬 Inspector 中重新勾選 Input Action Manager，
+        // 讓 OnEnable() 重新啟用玩家的 Input Actions。
+        inputActionManager.enabled = true;
+
+        Debug.Log(
+            $"[SceneTransitionManager] PersistentPlayer 的 Input Action Manager 已重新啟用，" +
+            $"Instance ID：{inputActionManager.GetInstanceID()}"
+        );
+    }
     private void MovePlayerToSpawnPoint()
     {
         if (string.IsNullOrWhiteSpace(targetSpawnId))
