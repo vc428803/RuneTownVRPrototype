@@ -20732,7 +20732,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3bea00f9501e89a4dbe51819045a7a48, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LLMClient
-  aiConnectionSettings: {fileID: 11400000, guid: 01c36483187d96a4f8548ff053502fe2, type: 2}
+  aiConnectionSettings: {fileID: 11400000, guid: e9761518803b3424b95027805fc6b9ff, type: 2}
 --- !u!4 &2052176846
 Transform:
   m_ObjectHideFlags: 0
