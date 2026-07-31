@@ -5,6 +5,9 @@ public class MonsterPlayerDetector : MonoBehaviour
     [SerializeField]
     private float detectionDistance = 2f;
 
+    [SerializeField]
+    private GameObject alertIndicator;
+
     private Transform playerCamera;
     private bool isPlayerInside;
 
@@ -21,6 +24,13 @@ public class MonsterPlayerDetector : MonoBehaviour
             UnityEngine.Debug.LogWarning(
                 "MonsterPlayerDetector：找不到 Main Camera。",
                 this);
+        }
+
+        // 修改原因：進入遊戲時先隱藏警戒符號，
+        // 避免場景中的啟用狀態設定錯誤。
+        if (alertIndicator != null)
+        {
+            alertIndicator.SetActive(false);
         }
     }
 
@@ -45,11 +55,25 @@ public class MonsterPlayerDetector : MonoBehaviour
         if (isCurrentlyInside && !isPlayerInside)
         {
             isPlayerInside = true;
+
+            // 修改原因：玩家進入偵測範圍時顯示波利的警戒符號。
+            if (alertIndicator != null)
+            {
+                alertIndicator.SetActive(true);
+            }
+
             UnityEngine.Debug.Log("玩家進入波利偵測範圍。", this);
         }
         else if (!isCurrentlyInside && isPlayerInside)
         {
             isPlayerInside = false;
+
+            // 修改原因：玩家離開偵測範圍時隱藏波利的警戒符號。
+            if (alertIndicator != null)
+            {
+                alertIndicator.SetActive(false);
+            }
+
             UnityEngine.Debug.Log("玩家離開波利偵測範圍。", this);
         }
     }
