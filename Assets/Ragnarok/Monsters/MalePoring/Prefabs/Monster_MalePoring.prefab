@@ -364,6 +364,7 @@ GameObject:
   m_Component:
   - component: {fileID: 362794834604377969}
   - component: {fileID: 383326452122403471}
+  - component: {fileID: -8847862724656647432}
   m_Layer: 0
   m_Name: Monster_MalePoring
   m_TagString: Untagged
@@ -407,6 +408,19 @@ MonoBehaviour:
   alertIndicator: {fileID: 5886574400356404786}
   alertDisplayDuration: 1
   monsterAnimator: {fileID: 6172261781689299595}
+--- !u!114 &-8847862724656647432
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7036833962354110685}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c2a5b06931c5314a9644b0168fd5329, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MonsterIdentity
+  monsterDefinition: {fileID: 11400000, guid: 91b5abd2f4997e041a0368c22fd2be6b, type: 2}
 --- !u!1 &7907754520700883883
 GameObject:
   m_ObjectHideFlags: 0
