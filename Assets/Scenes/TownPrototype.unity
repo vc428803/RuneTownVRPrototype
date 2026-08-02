@@ -14380,8 +14380,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6cf102c6eadf31b488c530493e35a4fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterPlayerDetector
-  detectionDistance: 2
+  detectionDistance: 5
+  moveSpeed: 0.8
+  stoppingDistance: 1.2
   alertIndicator: {fileID: 864177746}
+  monsterAnimator: {fileID: 214681433}
 --- !u!1 &1455563342 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 129533748591552801, guid: 61a6a75d01052ca4da6cb6ae8bf8fa28, type: 3}

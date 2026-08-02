@@ -6,10 +6,22 @@ public class MonsterPlayerDetector : MonoBehaviour
     private float detectionDistance = 2f;
 
     [SerializeField]
+    private float moveSpeed = 0.8f;
+
+    [SerializeField]
+    private float stoppingDistance = 1.2f;
+
+    [SerializeField]
     private GameObject alertIndicator;
+
+    [SerializeField]
+    private Animator monsterAnimator;
 
     private Transform playerCamera;
     private bool isPlayerInside;
+
+    private static readonly int IsWalkingHash =
+        Animator.StringToHash("IsWalking");
 
     private void Start()
     {
@@ -26,11 +38,16 @@ public class MonsterPlayerDetector : MonoBehaviour
                 this);
         }
 
-        // 修改原因：進入遊戲時先隱藏警戒符號，
-        // 避免場景中的啟用狀態設定錯誤。
+        // 修改原因：進入遊戲時先隱藏警戒符號。
         if (alertIndicator != null)
         {
             alertIndicator.SetActive(false);
+        }
+
+        // 修改原因：進入遊戲時先維持待機動畫。
+        if (monsterAnimator != null)
+        {
+            monsterAnimator.SetBool(IsWalkingHash, false);
         }
     }
 
@@ -44,37 +61,89 @@ public class MonsterPlayerDetector : MonoBehaviour
         Vector3 monsterPosition = transform.position;
         Vector3 playerPosition = playerCamera.position;
 
-        // 修改原因：只計算地面上的水平距離，
-        // 避免玩家頭部高度影響魔物的靠近判定。
-        monsterPosition.y = 0f;
-        playerPosition.y = 0f;
+        // 修改原因：只比較水平距離，避免 VR 頭部高度影響判斷。
+        Vector3 horizontalMonsterPosition = monsterPosition;
+        Vector3 horizontalPlayerPosition = playerPosition;
 
-        float distance = Vector3.Distance(monsterPosition, playerPosition);
-        bool isCurrentlyInside = distance <= detectionDistance;
+        horizontalMonsterPosition.y = 0f;
+        horizontalPlayerPosition.y = 0f;
 
+        float distance = Vector3.Distance(
+            horizontalMonsterPosition,
+            horizontalPlayerPosition);
+
+        bool isCurrentlyInside =
+            distance <= detectionDistance;
+
+        UpdateDetectionState(isCurrentlyInside);
+        UpdateMovement(distance, playerPosition);
+    }
+
+    private void UpdateDetectionState(bool isCurrentlyInside)
+    {
         if (isCurrentlyInside && !isPlayerInside)
         {
             isPlayerInside = true;
 
-            // 修改原因：玩家進入偵測範圍時顯示波利的警戒符號。
             if (alertIndicator != null)
             {
                 alertIndicator.SetActive(true);
             }
 
-            UnityEngine.Debug.Log("玩家進入波利偵測範圍。", this);
+            UnityEngine.Debug.Log(
+                "玩家進入波利偵測範圍。",
+                this);
         }
         else if (!isCurrentlyInside && isPlayerInside)
         {
             isPlayerInside = false;
 
-            // 修改原因：玩家離開偵測範圍時隱藏波利的警戒符號。
             if (alertIndicator != null)
             {
                 alertIndicator.SetActive(false);
             }
 
-            UnityEngine.Debug.Log("玩家離開波利偵測範圍。", this);
+            if (monsterAnimator != null)
+            {
+                monsterAnimator.SetBool(IsWalkingHash, false);
+            }
+
+            UnityEngine.Debug.Log(
+                "玩家離開波利偵測範圍。",
+                this);
         }
+    }
+
+    private void UpdateMovement(
+        float distance,
+        Vector3 playerPosition)
+    {
+        bool shouldMove =
+            isPlayerInside &&
+            distance > stoppingDistance;
+
+        if (monsterAnimator != null)
+        {
+            monsterAnimator.SetBool(
+                IsWalkingHash,
+                shouldMove);
+        }
+
+        if (!shouldMove)
+        {
+            return;
+        }
+
+        // 修改原因：波利只沿地面朝玩家靠近，
+        // 保留目前 Y 座標，避免追蹤玩家頭部高度而飛起來。
+        Vector3 targetPosition = new Vector3(
+            playerPosition.x,
+            transform.position.y,
+            playerPosition.z);
+
+        transform.position = Vector3.MoveTowards(
+            transform.position,
+            targetPosition,
+            moveSpeed * Time.deltaTime);
     }
 }
