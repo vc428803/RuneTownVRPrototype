@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 public class MonsterPlayerDetector : MonoBehaviour
 {
@@ -12,16 +13,28 @@ public class MonsterPlayerDetector : MonoBehaviour
     private float stoppingDistance = 1.2f;
 
     [SerializeField]
+    private float attackCooldown = 1.5f;
+
+    [SerializeField]
     private GameObject alertIndicator;
+
+    [SerializeField]
+    private float alertDisplayDuration = 1f;
+
+    private Coroutine alertCoroutine;
 
     [SerializeField]
     private Animator monsterAnimator;
 
     private Transform playerCamera;
     private bool isPlayerInside;
+    private float nextAttackTime;
 
     private static readonly int IsWalkingHash =
         Animator.StringToHash("IsWalking");
+
+    private static readonly int AttackHash =
+        Animator.StringToHash("Attack");
 
     private void Start()
     {
@@ -77,6 +90,7 @@ public class MonsterPlayerDetector : MonoBehaviour
 
         UpdateDetectionState(isCurrentlyInside);
         UpdateMovement(distance, playerPosition);
+        UpdateAttack(distance);
     }
 
     private void UpdateDetectionState(bool isCurrentlyInside)
@@ -85,10 +99,9 @@ public class MonsterPlayerDetector : MonoBehaviour
         {
             isPlayerInside = true;
 
-            if (alertIndicator != null)
-            {
-                alertIndicator.SetActive(true);
-            }
+            // 修改原因：警戒表情只在首次發現玩家時短暫顯示，
+            // 不讓它在追蹤或連續攻擊期間一直留在魔物頭上。
+            ShowAlertIndicator();
 
             UnityEngine.Debug.Log(
                 "玩家進入波利偵測範圍。",
@@ -106,12 +119,46 @@ public class MonsterPlayerDetector : MonoBehaviour
             if (monsterAnimator != null)
             {
                 monsterAnimator.SetBool(IsWalkingHash, false);
+                monsterAnimator.ResetTrigger(AttackHash);
             }
+
+            // 修改原因：玩家離開後重設攻擊計時，
+            // 下次再次進入攻擊距離時可以立即攻擊。
+            nextAttackTime = 0f;
 
             UnityEngine.Debug.Log(
                 "玩家離開波利偵測範圍。",
                 this);
         }
+    }
+
+    private void ShowAlertIndicator()
+    {
+        if (alertIndicator == null)
+        {
+            return;
+        }
+
+        if (alertCoroutine != null)
+        {
+            StopCoroutine(alertCoroutine);
+            alertCoroutine = null;
+        }
+
+
+        alertCoroutine = StartCoroutine(
+            ShowAlertIndicatorCoroutine());
+    }
+
+    private IEnumerator ShowAlertIndicatorCoroutine()
+    {
+        alertIndicator.SetActive(true);
+
+        yield return new WaitForSeconds(
+            alertDisplayDuration);
+
+        alertIndicator.SetActive(false);
+        alertCoroutine = null;
     }
 
     private void UpdateMovement(
@@ -145,5 +192,39 @@ public class MonsterPlayerDetector : MonoBehaviour
             transform.position,
             targetPosition,
             moveSpeed * Time.deltaTime);
+    }
+
+    private void UpdateAttack(float distance)
+    {
+        bool isWithinAttackDistance =
+            isPlayerInside &&
+            distance <= stoppingDistance;
+
+        if (!isWithinAttackDistance)
+        {
+            // 修改原因：玩家離開攻擊距離後重設計時，
+            // 再次靠近時讓波利立即發動下一次攻擊。
+            nextAttackTime = 0f;
+            return;
+        }
+
+        if (monsterAnimator == null)
+        {
+            return;
+        }
+
+        if (Time.time < nextAttackTime)
+        {
+            return;
+        }
+
+        // 修改原因：玩家仍在攻擊距離內時，
+        // 依照冷卻時間重複觸發 Attack 動畫。
+        monsterAnimator.SetTrigger(AttackHash);
+        nextAttackTime = Time.time + attackCooldown;
+
+        UnityEngine.Debug.Log(
+            "波利發動攻擊。",
+            this);
     }
 }
