@@ -9,6 +9,9 @@ public class MonsterSpawner : MonoBehaviour
     private Transform spawnPoint;
 
     [SerializeField]
+    private Transform activeMonstersParent;
+
+    [SerializeField]
     private int spawnCount = 10;
 
     [SerializeField]
@@ -39,6 +42,15 @@ public class MonsterSpawner : MonoBehaviour
             return;
         }
 
+        if (activeMonstersParent == null)
+        {
+            UnityEngine.Debug.LogWarning(
+                "MonsterSpawner：尚未指定 Active Monsters Parent。",
+                this);
+
+            return;
+        }
+
         // 修改原因：依照設定數量自動生成多隻魔物，
         // 避免逐隻手動建立與放置。
         for (int i = 0; i < spawnCount; i++)
@@ -53,10 +65,13 @@ public class MonsterSpawner : MonoBehaviour
                 spawnPoint.position.y,
                 spawnPoint.position.z + randomOffset.y);
 
+            // 修改原因：將所有執行中的魔物統一放入 ActiveMonsters，
+            // 避免大量生成物件散落在 Hierarchy 根目錄。
             GameObject spawnedMonster = Instantiate(
                 monsterPrefab,
                 spawnPosition,
-                spawnPoint.rotation);
+                spawnPoint.rotation,
+                activeMonstersParent);
 
             spawnedMonster.name =
                 $"{monsterPrefab.name}_{i + 1:00}";
