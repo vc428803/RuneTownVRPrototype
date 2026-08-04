@@ -49,4 +49,31 @@ public class MonsterManager : MonoBehaviour
             this);
     }
 
+    public int GetMonsterCount(string monsterId)
+    {
+        if (string.IsNullOrWhiteSpace(monsterId))
+        {
+            return 0;
+        }
+
+        int count = 0;
+
+        // 修改原因：依固定 MonsterId 統計指定種類的有效魔物，
+        // 避免 Quest 系統依物件名稱或 Hierarchy 路徑判斷種類。
+        foreach (MonsterIdentity monster in activeMonsters)
+        {
+            if (monster == null)
+            {
+                continue;
+            }
+
+            if (monster.MonsterId == monsterId)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
 }

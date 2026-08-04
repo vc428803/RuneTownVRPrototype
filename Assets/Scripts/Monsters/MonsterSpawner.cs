@@ -112,9 +112,15 @@ public class MonsterSpawner : MonoBehaviour
                 monsterIdentity);
         }
 
+        int malePoringCount =
+            monsterManager.GetMonsterCount("male_poring");
+
+        // 修改原因：目前先透過 Log 驗證 MonsterManager
+        // 能否依 MonsterId 正確統計指定種類的魔物數量。
         UnityEngine.Debug.Log(
             $"MonsterSpawner：已生成 {spawnCount} 隻魔物，" +
-            $"目前登記數量為 {monsterManager.ActiveMonsterCount}。",
+            $"目前登記總數為 {monsterManager.ActiveMonsterCount}，" +
+            $"male_poring 數量為 {malePoringCount}。",
             this);
     }
 }
