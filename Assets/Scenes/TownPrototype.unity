@@ -18212,6 +18212,7 @@ MonoBehaviour:
   monsterPrefab: {fileID: 7036833962354110685, guid: 03669d74446b3704a9d8d2a37d7455a6, type: 3}
   spawnPoint: {fileID: 141175415}
   activeMonstersParent: {fileID: 477559207}
+  monsterManager: {fileID: 1500497665}
   spawnCount: 10
   spawnRadius: 8
 --- !u!4 &1827522818

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class MonsterSpawner : MonoBehaviour
@@ -10,6 +11,9 @@ public class MonsterSpawner : MonoBehaviour
 
     [SerializeField]
     private Transform activeMonstersParent;
+
+    [SerializeField]
+    private MonsterManager monsterManager;
 
     [SerializeField]
     private int spawnCount = 10;
@@ -51,12 +55,21 @@ public class MonsterSpawner : MonoBehaviour
             return;
         }
 
+        if (monsterManager == null)
+        {
+            UnityEngine.Debug.LogWarning(
+                "MonsterSpawner：尚未指定 Monster Manager。",
+                this);
+
+            return;
+        }
+
         // 修改原因：依照設定數量自動生成多隻魔物，
         // 避免逐隻手動建立與放置。
         for (int i = 0; i < spawnCount; i++)
         {
             Vector2 randomOffset =
-                Random.insideUnitCircle * spawnRadius;
+                UnityEngine.Random.insideUnitCircle * spawnRadius;
 
             // 修改原因：以 Spawn Point 為中心，
             // 只在水平 X、Z 範圍內隨機分布，保留地面 Y 高度。
@@ -75,10 +88,28 @@ public class MonsterSpawner : MonoBehaviour
 
             spawnedMonster.name =
                 $"{monsterPrefab.name}_{i + 1:00}";
+
+            MonsterIdentity monsterIdentity =
+                spawnedMonster.GetComponent<MonsterIdentity>();
+
+            if (monsterIdentity == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"MonsterSpawner：{spawnedMonster.name} 缺少 MonsterIdentity。",
+                    spawnedMonster);
+
+                continue;
+            }
+
+            // 修改原因：魔物生成完成後立即向 MonsterManager 註冊，
+            // 讓其他系統可以取得目前場景中的有效魔物資料。
+            monsterManager.RegisterMonster(
+                monsterIdentity);
         }
 
         UnityEngine.Debug.Log(
-            $"MonsterSpawner：已生成 {spawnCount} 隻魔物。",
+            $"MonsterSpawner：已生成 {spawnCount} 隻魔物，" +
+            $"目前登記數量為 {monsterManager.ActiveMonsterCount}。",
             this);
     }
 }
