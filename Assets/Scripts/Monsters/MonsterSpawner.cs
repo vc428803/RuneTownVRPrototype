@@ -101,6 +101,11 @@ public class MonsterSpawner : MonoBehaviour
                 continue;
             }
 
+            // 修改原因：將管理器交給新生成的魔物保存，
+            // 讓魔物被銷毀時可以自動取消註冊。
+            monsterIdentity.Initialize(
+                monsterManager);
+
             // 修改原因：魔物生成完成後立即向 MonsterManager 註冊，
             // 讓其他系統可以取得目前場景中的有效魔物資料。
             monsterManager.RegisterMonster(
