@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7be9a03a69043146ba949be8c50c741, type: 3}
+  m_Name: PronteraArea01SpawnDefinition
+  m_EditorClassIdentifier: Assembly-CSharp::MonsterSpawnAreaDefinition
+  areaId: prontera_area_01
+  spawnRadius: 8
+  spawnEntries:
+  - monsterDefinition: {fileID: 11400000, guid: 91b5abd2f4997e041a0368c22fd2be6b, type: 2}
+    monsterPrefab: {fileID: 7036833962354110685, guid: 03669d74446b3704a9d8d2a37d7455a6, type: 3}
+    spawnCount: 10
