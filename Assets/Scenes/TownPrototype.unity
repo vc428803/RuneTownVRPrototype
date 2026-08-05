@@ -18209,12 +18209,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 137793adba5368843a51a943562d5031, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterSpawner
-  monsterPrefab: {fileID: 7036833962354110685, guid: 03669d74446b3704a9d8d2a37d7455a6, type: 3}
+  spawnAreaDefinition: {fileID: 11400000, guid: 0bdd97036a693c94ea49514f660e36b0, type: 2}
   spawnPoint: {fileID: 141175415}
   activeMonstersParent: {fileID: 477559207}
   monsterManager: {fileID: 1500497665}
-  spawnCount: 10
-  spawnRadius: 8
 --- !u!4 &1827522818
 Transform:
   m_ObjectHideFlags: 0
