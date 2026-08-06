@@ -104,7 +104,7 @@ public class MonsterPlayerDetector : MonoBehaviour
             ShowAlertIndicator();
 
             UnityEngine.Debug.Log(
-                "玩家進入波利偵測範圍。",
+                $"玩家進入魔物偵測範圍：{gameObject.name}",
                 this);
         }
         else if (!isCurrentlyInside && isPlayerInside)
@@ -127,7 +127,7 @@ public class MonsterPlayerDetector : MonoBehaviour
             nextAttackTime = 0f;
 
             UnityEngine.Debug.Log(
-                "玩家離開波利偵測範圍。",
+                $"玩家離開魔物偵測範圍：{gameObject.name}",
                 this);
         }
     }
@@ -181,7 +181,7 @@ public class MonsterPlayerDetector : MonoBehaviour
             return;
         }
 
-        // 修改原因：波利只沿地面朝玩家靠近，
+        // 修改原因：魔物只沿地面朝玩家靠近，
         // 保留目前 Y 座標，避免追蹤玩家頭部高度而飛起來。
         Vector3 targetPosition = new Vector3(
             playerPosition.x,
@@ -203,7 +203,7 @@ public class MonsterPlayerDetector : MonoBehaviour
         if (!isWithinAttackDistance)
         {
             // 修改原因：玩家離開攻擊距離後重設計時，
-            // 再次靠近時讓波利立即發動下一次攻擊。
+            // 再次靠近時讓魔物立即發動下一次攻擊。
             nextAttackTime = 0f;
             return;
         }
@@ -224,7 +224,7 @@ public class MonsterPlayerDetector : MonoBehaviour
         nextAttackTime = Time.time + attackCooldown;
 
         UnityEngine.Debug.Log(
-            "波利發動攻擊。",
+            $"魔物發動攻擊：{gameObject.name}",
             this);
     }
 }
