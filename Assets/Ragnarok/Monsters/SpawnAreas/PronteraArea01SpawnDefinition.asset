@@ -18,3 +18,6 @@ MonoBehaviour:
   - monsterDefinition: {fileID: 11400000, guid: 91b5abd2f4997e041a0368c22fd2be6b, type: 2}
     monsterPrefab: {fileID: 7036833962354110685, guid: 03669d74446b3704a9d8d2a37d7455a6, type: 3}
     spawnCount: 10
+  - monsterDefinition: {fileID: 11400000, guid: a865b5d781cebe84bae4970d9248cb26, type: 2}
+    monsterPrefab: {fileID: 5758467000797445917, guid: 49f0f02d301a681499ff6823b8149425, type: 3}
+    spawnCount: 1
