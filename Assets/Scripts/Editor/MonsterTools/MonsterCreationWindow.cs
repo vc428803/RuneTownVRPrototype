@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -8,8 +9,6 @@ public class MonsterCreationWindow : EditorWindow
     private string monsterId = string.Empty;
     private string displayName = string.Empty;
 
-    // 修改原因：提供統一的魔物建立工具入口，
-    // 後續新增魔物時不需要重複手動建立 Animator、Prefab 等設定。
     [MenuItem("RuneTown/Monsters/Monster Creation Tool")]
     public static void ShowWindow()
     {
@@ -42,11 +41,61 @@ public class MonsterCreationWindow : EditorWindow
             "Monster Id",
             monsterId);
 
-        // 修改原因：保存遊戲畫面或 Quest 等系統顯示給玩家看的魔物名稱，
-        // 並允許與程式內部使用的 Monster Name 不同。
         displayName = EditorGUILayout.TextField(
             "Display Name",
             displayName);
+
+        EditorGUILayout.Space();
+
+        if (GUILayout.Button("Create Folder Structure"))
+        {
+            CreateFolderStructure();
+        }
+    }
+
+    private void CreateFolderStructure()
+    {
+        if (string.IsNullOrWhiteSpace(monsterName))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Name cannot be empty.",
+                "OK");
+
+            return;
+        }
+
+        string rootPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}";
+
+        string[] folders =
+        {
+            "Data",
+            "Prefabs",
+            "Idle/Frames",
+            "Idle/Animations",
+            "Walk/Frames",
+            "Walk/Animations",
+            "Attack/Frames",
+            "Attack/Animations",
+            "Hit/Frames",
+            "Hit/Animations",
+            "Die/Frames",
+            "Die/Animations"
+        };
+
+        // 修改原因：自動建立統一的魔物素材結構，
+        // 避免每次新增魔物都手動建立相同資料夾。
+        foreach (string folder in folders)
+        {
+            Directory.CreateDirectory(
+                Path.Combine(rootPath, folder));
+        }
+
+        AssetDatabase.Refresh();
+
+        Debug.Log(
+            $"Monster Creation Tool：已建立 {monsterName} 資料夾結構。");
     }
 
     private static string ConvertToMonsterId(string value)
