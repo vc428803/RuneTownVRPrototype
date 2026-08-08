@@ -51,6 +51,79 @@ public class MonsterCreationWindow : EditorWindow
         {
             CreateFolderStructure();
         }
+
+        if (GUILayout.Button("Create Monster Definition"))
+        {
+            CreateMonsterDefinition();
+        }
+    }
+
+    private void CreateMonsterDefinition()
+    {
+        if (string.IsNullOrWhiteSpace(monsterName))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Name cannot be empty.",
+                "OK");
+
+            return;
+        }
+
+        string dataFolderPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}/Data";
+
+        if (!AssetDatabase.IsValidFolder(dataFolderPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Please create the monster folder structure first.",
+                "OK");
+
+            return;
+        }
+
+        string assetPath =
+            $"{dataFolderPath}/{monsterName}Definition.asset";
+
+        if (AssetDatabase.LoadAssetAtPath<MonsterDefinition>(
+                assetPath) != null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Definition already exists.",
+                "OK");
+
+            return;
+        }
+
+        MonsterDefinition definition =
+            ScriptableObject.CreateInstance<MonsterDefinition>();
+
+        SerializedObject serializedDefinition =
+            new SerializedObject(definition);
+
+        // 修改原因：透過 SerializedObject 寫入 private SerializeField，
+        // 避免為了 Editor Tool 額外暴露 MonsterDefinition 的 setter。
+        serializedDefinition.FindProperty("monsterId").stringValue =
+            monsterId;
+
+        serializedDefinition.FindProperty("displayName").stringValue =
+            displayName;
+
+        serializedDefinition.ApplyModifiedPropertiesWithoutUndo();
+
+        AssetDatabase.CreateAsset(
+            definition,
+            assetPath);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Selection.activeObject = definition;
+
+        Debug.Log(
+            $"Monster Creation Tool：已建立 {monsterName}Definition。");
     }
 
     private void CreateFolderStructure()
