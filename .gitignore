@@ -35,4 +35,6 @@ UserSettings/
 
 # Local AI connection settings - contains private API URL and key
 Assets/ScriptableObjects/AiConnectionSettings.Local.asset
-Assets/ScriptableObjects/AiConnectionSettings.Local.asset.meta
+Assets/ScriptableObjects/AiConnectionSettings.Local.asset.meta*.slnx
+
+*.slnx
