@@ -56,6 +56,114 @@ public class MonsterCreationWindow : EditorWindow
         {
             CreateMonsterDefinition();
         }
+
+        if (GUILayout.Button("Apply Sprite Import Settings"))
+        {
+            ApplySpriteImportSettings();
+        }
+    }
+
+    private void ApplySpriteImportSettings()
+    {
+        if (string.IsNullOrWhiteSpace(monsterName))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Name cannot be empty.",
+                "OK");
+
+            return;
+        }
+
+        string rootPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}";
+
+        string[] frameFolders =
+        {
+        $"{rootPath}/Idle/Frames",
+        $"{rootPath}/Walk/Frames",
+        $"{rootPath}/Attack/Frames",
+        $"{rootPath}/Hit/Frames",
+        $"{rootPath}/Die/Frames"
+    };
+
+        int updatedTextureCount = 0;
+
+        // 修改原因：統一套用魔物逐幀圖片的 Sprite 匯入設定，
+        // 避免每新增一個動畫都需要手動設定相同參數。
+        foreach (string folderPath in frameFolders)
+        {
+            if (!AssetDatabase.IsValidFolder(folderPath))
+            {
+                continue;
+            }
+
+            string[] textureGuids =
+                AssetDatabase.FindAssets(
+                    "t:Texture2D",
+                    new[] { folderPath });
+
+            foreach (string textureGuid in textureGuids)
+            {
+                string assetPath =
+                    AssetDatabase.GUIDToAssetPath(
+                        textureGuid);
+
+                TextureImporter importer =
+                    AssetImporter.GetAtPath(assetPath)
+                        as TextureImporter;
+
+                if (importer == null)
+                {
+                    continue;
+                }
+
+                importer.textureType =
+                    TextureImporterType.Sprite;
+
+                importer.spriteImportMode =
+                    SpriteImportMode.Single;
+
+                importer.spritePixelsPerUnit = 100f;
+
+                // 修改原因：Unity 6 的 Sprite Mesh Type 需透過
+                // TextureImporterSettings 設定，統一使用 Full Rect。
+                TextureImporterSettings importerSettings =
+                    new TextureImporterSettings();
+
+                importer.ReadTextureSettings(importerSettings);
+
+                importerSettings.spriteMeshType =
+                    SpriteMeshType.FullRect;
+
+                importer.SetTextureSettings(importerSettings);
+
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+
+
+                importer.wrapMode =
+                    TextureWrapMode.Clamp;
+
+                importer.filterMode =
+                    FilterMode.Point;
+
+                importer.maxTextureSize = 2048;
+
+                importer.textureCompression =
+                    TextureImporterCompression.Uncompressed;
+
+                importer.SaveAndReimport();
+
+                updatedTextureCount++;
+            }
+
+
+        }
+
+        Debug.Log(
+            $"Monster Creation Tool：已更新 " +
+            $"{updatedTextureCount} 張 Sprite 匯入設定。");
     }
 
     private void CreateMonsterDefinition()
