@@ -10,6 +10,10 @@ public class MonsterCreationWindow : EditorWindow
     private string monsterId = string.Empty;
     private string displayName = string.Empty;
 
+    // 修改原因：讓每種魔物可以指定警戒時顯示的 Sprite，
+    // 避免 Prefab 建立工具寫死特定魔物的警戒圖片。
+    private Sprite alertSprite;
+
     [MenuItem("RuneTown/Monsters/Monster Creation Tool")]
     public static void ShowWindow()
     {
@@ -45,6 +49,14 @@ public class MonsterCreationWindow : EditorWindow
         displayName = EditorGUILayout.TextField(
             "Display Name",
             displayName);
+
+        // 修改原因：讓每種魔物可以指定警戒時顯示的 Sprite，
+        // 避免 Prefab 建立工具寫死特定魔物的警戒圖片。
+        alertSprite = (Sprite)EditorGUILayout.ObjectField(
+            "Alert Sprite",
+            alertSprite,
+            typeof(Sprite),
+            false);
 
         EditorGUILayout.Space();
 
@@ -227,6 +239,54 @@ public class MonsterCreationWindow : EditorWindow
         detectorObject.FindProperty(
             "monsterAnimator").objectReferenceValue =
             animator;
+
+        // 修改原因：自動建立警戒提示父物件，
+        // 讓魔物偵測到玩家時可短暫顯示警戒圖示。
+        GameObject alertIndicatorObject =
+            new GameObject("AlertIndicator");
+
+        alertIndicatorObject.transform.SetParent(
+            monsterObject.transform);
+
+        alertIndicatorObject.transform.localPosition =
+            new Vector3(0f, 1.2f, 0f);
+
+        alertIndicatorObject.transform.localRotation =
+            Quaternion.identity;
+
+        alertIndicatorObject.transform.localScale =
+            Vector3.one;
+
+        // 修改原因：讓警戒提示持續朝向玩家鏡頭。
+        alertIndicatorObject.AddComponent<BillboardToCamera>();
+
+        // 修改原因：建立實際顯示警戒 Sprite 的子物件。
+        GameObject smirkVisualObject =
+            new GameObject("SmirkVisual");
+
+        smirkVisualObject.transform.SetParent(
+            alertIndicatorObject.transform);
+
+        smirkVisualObject.transform.localPosition =
+            Vector3.zero;
+
+        smirkVisualObject.transform.localRotation =
+            Quaternion.identity;
+
+        smirkVisualObject.transform.localScale =
+            new Vector3(0.5f, 0.5f, 0.5f);
+
+        SpriteRenderer alertSpriteRenderer =
+            smirkVisualObject.AddComponent<SpriteRenderer>();
+
+        alertSpriteRenderer.sprite =
+            alertSprite;
+
+        // 修改原因：自動將新建立的 AlertIndicator
+        // 指定給 MonsterPlayerDetector。
+        detectorObject.FindProperty(
+            "alertIndicator").objectReferenceValue =
+            alertIndicatorObject;
 
         detectorObject.ApplyModifiedPropertiesWithoutUndo();
 
