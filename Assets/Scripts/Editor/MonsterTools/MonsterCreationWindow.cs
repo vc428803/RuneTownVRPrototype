@@ -14,6 +14,17 @@ public class MonsterCreationWindow : EditorWindow
     // 避免 Prefab 建立工具寫死特定魔物的警戒圖片。
     private Sprite alertSprite;
 
+    // 修改原因：讓建立工具可指定警戒表情使用的 Animator Controller，
+    // 避免在程式中寫死特定資產名稱。
+    private RuntimeAnimatorController alertAnimatorController;
+
+    // 修改原因：讓建立工具可以指定魔物要加入哪一個生成區域，
+    // 避免程式寫死 PronteraArea01SpawnDefinition。
+    private MonsterSpawnAreaDefinition spawnAreaDefinition;
+
+    // 修改原因：設定此魔物在指定區域預設生成的數量。
+    private int spawnCount = 1;
+
     [MenuItem("RuneTown/Monsters/Monster Creation Tool")]
     public static void ShowWindow()
     {
@@ -58,6 +69,31 @@ public class MonsterCreationWindow : EditorWindow
             typeof(Sprite),
             false);
 
+        alertAnimatorController =
+            (RuntimeAnimatorController)
+            EditorGUILayout.ObjectField(
+                "Alert Animator Controller",
+                alertAnimatorController,
+                typeof(RuntimeAnimatorController),
+                false);
+
+
+        spawnAreaDefinition =
+            (MonsterSpawnAreaDefinition)
+            EditorGUILayout.ObjectField(
+        "Spawn Area Definition",
+        spawnAreaDefinition,
+        typeof(MonsterSpawnAreaDefinition),
+        false);
+
+        spawnCount = EditorGUILayout.IntField(
+            "Spawn Count",
+            spawnCount);
+
+        spawnCount = Mathf.Max(
+            0,
+            spawnCount);
+
         EditorGUILayout.Space();
 
         if (GUILayout.Button("Create Folder Structure"))
@@ -99,6 +135,133 @@ public class MonsterCreationWindow : EditorWindow
         {
             CreateMonsterPrefab();
         }
+
+        if (GUILayout.Button("Add To Spawn Area"))
+        {
+            AddToSpawnArea();
+        }
+    }
+
+    private void AddToSpawnArea()
+    {
+        if (string.IsNullOrWhiteSpace(monsterName))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Name cannot be empty.",
+                "OK");
+
+            return;
+        }
+
+        if (spawnAreaDefinition == null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Spawn Area Definition must be assigned.",
+                "OK");
+
+            return;
+        }
+
+        string rootPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}";
+
+        string definitionPath =
+            $"{rootPath}/Data/{monsterName}Definition.asset";
+
+        string prefabPath =
+            $"{rootPath}/Prefabs/Monster_{monsterName}.prefab";
+
+        MonsterDefinition definition =
+            AssetDatabase.LoadAssetAtPath<MonsterDefinition>(
+                definitionPath);
+
+        GameObject prefab =
+            AssetDatabase.LoadAssetAtPath<GameObject>(
+                prefabPath);
+
+        if (definition == null || prefab == null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Definition and Prefab must exist first.",
+                "OK");
+
+            return;
+        }
+
+        SerializedObject areaObject =
+            new SerializedObject(spawnAreaDefinition);
+
+        SerializedProperty entriesProperty =
+            areaObject.FindProperty("spawnEntries");
+
+        if (entriesProperty == null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Spawn Entries property was not found.",
+                "OK");
+
+            return;
+        }
+
+        // 修改原因：避免同一種魔物被重複加入同一個 Spawn Area。
+        for (int i = 0; i < entriesProperty.arraySize; i++)
+        {
+            SerializedProperty entryProperty =
+                entriesProperty.GetArrayElementAtIndex(i);
+
+            SerializedProperty definitionProperty =
+                entryProperty.FindPropertyRelative(
+                    "monsterDefinition");
+
+            if (definitionProperty.objectReferenceValue ==
+                definition)
+            {
+                EditorUtility.DisplayDialog(
+                    "Monster Creation Tool",
+                    "This monster already exists in the selected Spawn Area.",
+                    "OK");
+
+                return;
+            }
+        }
+
+        int newIndex =
+            entriesProperty.arraySize;
+
+        entriesProperty.InsertArrayElementAtIndex(
+            newIndex);
+
+        SerializedProperty newEntry =
+            entriesProperty.GetArrayElementAtIndex(
+                newIndex);
+
+        newEntry.FindPropertyRelative(
+            "monsterDefinition").objectReferenceValue =
+            definition;
+
+        newEntry.FindPropertyRelative(
+            "monsterPrefab").objectReferenceValue =
+            prefab;
+
+        newEntry.FindPropertyRelative(
+            "spawnCount").intValue =
+            spawnCount;
+
+        areaObject.ApplyModifiedProperties();
+
+        EditorUtility.SetDirty(
+            spawnAreaDefinition);
+
+        AssetDatabase.SaveAssets();
+
+        Debug.Log(
+            $"Monster Creation Tool：已將 {monsterName} " +
+            $"加入區域 {spawnAreaDefinition.AreaId}，" +
+            $"生成數量為 {spawnCount}。");
     }
 
     private void CreateMonsterPrefab()
@@ -170,6 +333,16 @@ public class MonsterCreationWindow : EditorWindow
             return;
         }
 
+        if (alertSprite == null || alertAnimatorController == null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Alert Sprite and Alert Animator Controller must be assigned.",
+                "OK");
+
+            return;
+        }
+
         string[] idleSpriteGuids =
             AssetDatabase.FindAssets(
                 "t:Sprite",
@@ -209,19 +382,39 @@ public class MonsterCreationWindow : EditorWindow
                 firstIdleSpritePath);
 
         GameObject monsterObject =
-            new GameObject(
-                $"Monster_{monsterName}");
+     new GameObject(
+         $"Monster_{monsterName}");
 
-        // 修改原因：建立魔物 Prefab 的基本視覺元件，
+        // 修改原因：建立獨立的 Visual 子物件，
+        // 讓魔物邏輯座標與圖片顯示高度分離，避免角色陷入地面。
+        GameObject visualObject =
+            new GameObject("Visual");
+
+        visualObject.transform.SetParent(
+            monsterObject.transform);
+
+        visualObject.transform.localPosition =
+            new Vector3(0f, 0.5f, 0f);
+
+        visualObject.transform.localRotation =
+            Quaternion.identity;
+
+        visualObject.transform.localScale =
+            Vector3.one;
+
+        // 修改原因：主視覺圖像掛在 Visual 子物件上，
         // 並以第一張 Idle Sprite 作為初始顯示圖片。
         SpriteRenderer spriteRenderer =
-            monsterObject.AddComponent<SpriteRenderer>();
+            visualObject.AddComponent<SpriteRenderer>();
 
         spriteRenderer.sprite =
             firstIdleSprite;
 
+        // 修改原因：讓魔物主體圖片持續面向玩家鏡頭。
+        visualObject.AddComponent<BillboardToCamera>();
+
         Animator animator =
-            monsterObject.AddComponent<Animator>();
+            visualObject.AddComponent<Animator>();
 
         animator.runtimeAnimatorController =
             controller;
@@ -239,6 +432,12 @@ public class MonsterCreationWindow : EditorWindow
         detectorObject.FindProperty(
             "monsterAnimator").objectReferenceValue =
             animator;
+
+        // 修改原因：新建立的標準魔物統一使用目前實測合適的
+        // 玩家偵測距離，避免沿用 MonsterPlayerDetector 預設的 2。
+        detectorObject.FindProperty(
+            "detectionDistance").floatValue =
+            5f;
 
         // 修改原因：自動建立警戒提示父物件，
         // 讓魔物偵測到玩家時可短暫顯示警戒圖示。
@@ -282,6 +481,14 @@ public class MonsterCreationWindow : EditorWindow
         alertSpriteRenderer.sprite =
             alertSprite;
 
+        // 修改原因：讓警戒圖示可播放表情動畫，
+        // 而不是只顯示單張 Sprite。PrefabUtility.SaveAsPrefabAsset(
+        Animator alertAnimator =
+            smirkVisualObject.AddComponent<Animator>();
+
+        alertAnimator.runtimeAnimatorController =
+            alertAnimatorController;
+
         // 修改原因：自動將新建立的 AlertIndicator
         // 指定給 MonsterPlayerDetector。
         detectorObject.FindProperty(
@@ -309,6 +516,12 @@ public class MonsterCreationWindow : EditorWindow
                 monsterObject,
                 prefabPath);
 
+        // 修改原因：Prefab 重建後，自動更新 Spawn Area 中
+        // 已存在魔物項目的 Prefab 引用，避免變成 Missing。
+        UpdateSpawnAreaPrefabReference(
+            definition,
+            prefab);
+
         DestroyImmediate(monsterObject);
 
         AssetDatabase.SaveAssets();
@@ -318,6 +531,66 @@ public class MonsterCreationWindow : EditorWindow
 
         Debug.Log(
             $"Monster Creation Tool：已建立 Monster_{monsterName} Prefab。");
+    }
+
+    private void UpdateSpawnAreaPrefabReference(
+    MonsterDefinition definition,
+    GameObject prefab)
+    {
+        if (spawnAreaDefinition == null)
+        {
+            return;
+        }
+
+        SerializedObject areaObject =
+            new SerializedObject(spawnAreaDefinition);
+
+        SerializedProperty entriesProperty =
+            areaObject.FindProperty("spawnEntries");
+
+        if (entriesProperty == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < entriesProperty.arraySize; i++)
+        {
+            SerializedProperty entryProperty =
+                entriesProperty.GetArrayElementAtIndex(i);
+
+            SerializedProperty definitionProperty =
+                entryProperty.FindPropertyRelative(
+                    "monsterDefinition");
+
+            if (definitionProperty.objectReferenceValue !=
+                definition)
+            {
+                continue;
+            }
+
+            SerializedProperty prefabProperty =
+                entryProperty.FindPropertyRelative(
+                    "monsterPrefab");
+
+            // 修改原因：同一 MonsterDefinition 已存在於 Spawn Area 時，
+            // 將 Prefab 引用更新成剛建立的新 Prefab。
+            prefabProperty.objectReferenceValue =
+                prefab;
+
+            areaObject.ApplyModifiedProperties();
+
+            EditorUtility.SetDirty(
+                spawnAreaDefinition);
+
+            AssetDatabase.SaveAssets();
+
+            Debug.Log(
+                $"Monster Creation Tool：已更新 " +
+                $"{spawnAreaDefinition.AreaId} 中 " +
+                $"{definition.DisplayName} 的 Prefab 引用。");
+
+            return;
+        }
     }
 
     private void CreateAnimatorController()
