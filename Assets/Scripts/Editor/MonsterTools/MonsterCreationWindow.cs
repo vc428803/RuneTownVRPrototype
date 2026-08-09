@@ -61,6 +61,471 @@ public class MonsterCreationWindow : EditorWindow
         {
             ApplySpriteImportSettings();
         }
+
+        if (GUILayout.Button("Create Idle Animation"))
+        {
+            CreateIdleAnimation();
+        }
+
+        if (GUILayout.Button("Create Walk Animation"))
+        {
+            CreateWalkAnimation();
+        }
+
+        if (GUILayout.Button("Create Attack Animation"))
+        {
+            CreateAttackAnimation();
+        }
+    }
+
+    private void CreateAttackAnimation()
+    {
+        if (string.IsNullOrWhiteSpace(monsterName))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Name cannot be empty.",
+                "OK");
+
+            return;
+        }
+
+        string framesFolderPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}/Attack/Frames";
+
+        string animationFolderPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}/Attack/Animations";
+
+        if (!AssetDatabase.IsValidFolder(framesFolderPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Attack Frames folder does not exist.",
+                "OK");
+
+            return;
+        }
+
+        if (!AssetDatabase.IsValidFolder(animationFolderPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Attack Animations folder does not exist.",
+                "OK");
+
+            return;
+        }
+
+        string animationPath =
+            $"{animationFolderPath}/{monsterName}_Attack.anim";
+
+        if (AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                animationPath) != null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Attack Animation already exists.",
+                "OK");
+
+            return;
+        }
+
+        string[] spriteGuids =
+            AssetDatabase.FindAssets(
+                "t:Sprite",
+                new[] { framesFolderPath });
+
+        if (spriteGuids.Length == 0)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "No Attack sprites were found.",
+                "OK");
+
+            return;
+        }
+
+        // 修改原因：依 Asset Path 排序逐幀圖片，
+        // 避免 AssetDatabase 回傳順序不固定造成攻擊動畫幀順序錯亂。
+        System.Array.Sort(
+            spriteGuids,
+            (a, b) =>
+            {
+                string pathA =
+                    AssetDatabase.GUIDToAssetPath(a);
+
+                string pathB =
+                    AssetDatabase.GUIDToAssetPath(b);
+
+                return string.CompareOrdinal(
+                    pathA,
+                    pathB);
+            });
+
+        AnimationClip clip =
+            new AnimationClip();
+
+        clip.frameRate = 12f;
+
+        ObjectReferenceKeyframe[] keyframes =
+            new ObjectReferenceKeyframe[spriteGuids.Length];
+
+        for (int i = 0; i < spriteGuids.Length; i++)
+        {
+            string spritePath =
+                AssetDatabase.GUIDToAssetPath(
+                    spriteGuids[i]);
+
+            Sprite sprite =
+                AssetDatabase.LoadAssetAtPath<Sprite>(
+                    spritePath);
+
+            keyframes[i] =
+                new ObjectReferenceKeyframe
+                {
+                    time = i / clip.frameRate,
+                    value = sprite
+                };
+        }
+
+        EditorCurveBinding spriteBinding =
+            new EditorCurveBinding
+            {
+                type = typeof(SpriteRenderer),
+                path = string.Empty,
+                propertyName = "m_Sprite"
+            };
+
+        AnimationUtility.SetObjectReferenceCurve(
+            clip,
+            spriteBinding,
+            keyframes);
+
+        // 修改原因：Attack 動畫只播放一次，
+        // 不設定 Loop Time，讓 Animator 播放完成後返回 Idle。
+        AnimationClipSettings clipSettings =
+            AnimationUtility.GetAnimationClipSettings(
+                clip);
+
+        clipSettings.loopTime = false;
+
+        AnimationUtility.SetAnimationClipSettings(
+            clip,
+            clipSettings);
+
+        AssetDatabase.CreateAsset(
+            clip,
+            animationPath);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Selection.activeObject = clip;
+
+        Debug.Log(
+            $"Monster Creation Tool：已建立 " +
+            $"{monsterName}_Attack.anim，" +
+            $"共 {spriteGuids.Length} 幀。");
+    }
+
+    private void CreateWalkAnimation()
+    {
+        if (string.IsNullOrWhiteSpace(monsterName))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Name cannot be empty.",
+                "OK");
+
+            return;
+        }
+
+        string framesFolderPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}/Walk/Frames";
+
+        string animationFolderPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}/Walk/Animations";
+
+        if (!AssetDatabase.IsValidFolder(framesFolderPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Walk Frames folder does not exist.",
+                "OK");
+
+            return;
+        }
+
+        if (!AssetDatabase.IsValidFolder(animationFolderPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Walk Animations folder does not exist.",
+                "OK");
+
+            return;
+        }
+
+        string animationPath =
+            $"{animationFolderPath}/{monsterName}_Walk.anim";
+
+        if (AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                animationPath) != null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Walk Animation already exists.",
+                "OK");
+
+            return;
+        }
+
+        string[] spriteGuids =
+            AssetDatabase.FindAssets(
+                "t:Sprite",
+                new[] { framesFolderPath });
+
+        if (spriteGuids.Length == 0)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "No Walk sprites were found.",
+                "OK");
+
+            return;
+        }
+
+        // 修改原因：依 Asset Path 排序逐幀圖片，
+        // 避免 AssetDatabase 回傳順序不固定造成動畫幀順序錯亂。
+        System.Array.Sort(
+            spriteGuids,
+            (a, b) =>
+            {
+                string pathA =
+                    AssetDatabase.GUIDToAssetPath(a);
+
+                string pathB =
+                    AssetDatabase.GUIDToAssetPath(b);
+
+                return string.CompareOrdinal(
+                    pathA,
+                    pathB);
+            });
+
+        AnimationClip clip =
+            new AnimationClip();
+
+        clip.frameRate = 12f;
+
+        ObjectReferenceKeyframe[] keyframes =
+            new ObjectReferenceKeyframe[spriteGuids.Length];
+
+        for (int i = 0; i < spriteGuids.Length; i++)
+        {
+            string spritePath =
+                AssetDatabase.GUIDToAssetPath(
+                    spriteGuids[i]);
+
+            Sprite sprite =
+                AssetDatabase.LoadAssetAtPath<Sprite>(
+                    spritePath);
+
+            keyframes[i] =
+                new ObjectReferenceKeyframe
+                {
+                    time = i / clip.frameRate,
+                    value = sprite
+                };
+        }
+
+        EditorCurveBinding spriteBinding =
+            new EditorCurveBinding
+            {
+                type = typeof(SpriteRenderer),
+                path = string.Empty,
+                propertyName = "m_Sprite"
+            };
+
+        AnimationUtility.SetObjectReferenceCurve(
+            clip,
+            spriteBinding,
+            keyframes);
+
+        // 修改原因：Walk 動畫需要循環播放，
+        // 建立時直接設定 Loop Time。
+        AnimationClipSettings clipSettings =
+            AnimationUtility.GetAnimationClipSettings(
+                clip);
+
+        clipSettings.loopTime = true;
+
+        AnimationUtility.SetAnimationClipSettings(
+            clip,
+            clipSettings);
+
+        AssetDatabase.CreateAsset(
+            clip,
+            animationPath);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Selection.activeObject = clip;
+
+        Debug.Log(
+            $"Monster Creation Tool：已建立 " +
+            $"{monsterName}_Walk.anim，" +
+            $"共 {spriteGuids.Length} 幀。");
+    }
+
+    private void CreateIdleAnimation()
+    {
+        if (string.IsNullOrWhiteSpace(monsterName))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Name cannot be empty.",
+                "OK");
+
+            return;
+        }
+
+        string framesFolderPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}/Idle/Frames";
+
+        string animationFolderPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}/Idle/Animations";
+
+        if (!AssetDatabase.IsValidFolder(framesFolderPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Idle Frames folder does not exist.",
+                "OK");
+
+            return;
+        }
+
+        if (!AssetDatabase.IsValidFolder(animationFolderPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Idle Animations folder does not exist.",
+                "OK");
+
+            return;
+        }
+
+        string animationPath =
+            $"{animationFolderPath}/{monsterName}_Idle.anim";
+
+        if (AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                animationPath) != null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Idle Animation already exists.",
+                "OK");
+
+            return;
+        }
+
+        string[] spriteGuids =
+            AssetDatabase.FindAssets(
+                "t:Sprite",
+                new[] { framesFolderPath });
+
+        if (spriteGuids.Length == 0)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "No Idle sprites were found.",
+                "OK");
+
+            return;
+        }
+
+        // 修改原因：依 Asset Path 排序逐幀圖片，
+        // 避免 AssetDatabase 回傳順序不固定造成動畫幀順序錯亂。
+        System.Array.Sort(
+            spriteGuids,
+            (a, b) =>
+            {
+                string pathA =
+                    AssetDatabase.GUIDToAssetPath(a);
+
+                string pathB =
+                    AssetDatabase.GUIDToAssetPath(b);
+
+                return string.CompareOrdinal(
+                    pathA,
+                    pathB);
+            });
+
+        AnimationClip clip =
+            new AnimationClip();
+
+        clip.frameRate = 12f;
+
+        ObjectReferenceKeyframe[] keyframes =
+            new ObjectReferenceKeyframe[spriteGuids.Length];
+
+        for (int i = 0; i < spriteGuids.Length; i++)
+        {
+            string spritePath =
+                AssetDatabase.GUIDToAssetPath(
+                    spriteGuids[i]);
+
+            Sprite sprite =
+                AssetDatabase.LoadAssetAtPath<Sprite>(
+                    spritePath);
+
+            keyframes[i] =
+                new ObjectReferenceKeyframe
+                {
+                    time = i / clip.frameRate,
+                    value = sprite
+                };
+        }
+
+        EditorCurveBinding spriteBinding =
+            new EditorCurveBinding
+            {
+                type = typeof(SpriteRenderer),
+                path = string.Empty,
+                propertyName = "m_Sprite"
+            };
+
+        AnimationUtility.SetObjectReferenceCurve(
+            clip,
+            spriteBinding,
+            keyframes);
+
+        // 修改原因：Idle 動畫需要持續循環播放，
+        // 建立時直接設定 Loop Time，避免之後逐隻手動勾選。
+        AnimationClipSettings clipSettings =
+            AnimationUtility.GetAnimationClipSettings(
+                clip);
+
+        clipSettings.loopTime = true;
+
+        AnimationUtility.SetAnimationClipSettings(
+            clip,
+            clipSettings);
+
+        AssetDatabase.CreateAsset(
+            clip,
+            animationPath);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Selection.activeObject = clip;
+
+        Debug.Log(
+            $"Monster Creation Tool：已建立 " +
+            $"{monsterName}_Idle.anim，" +
+            $"共 {spriteGuids.Length} 幀。");
     }
 
     private void ApplySpriteImportSettings()
