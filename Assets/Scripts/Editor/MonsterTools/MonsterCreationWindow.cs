@@ -2,6 +2,7 @@ using System.IO;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
+using UnityEditor.Animations;
 
 public class MonsterCreationWindow : EditorWindow
 {
@@ -76,6 +77,168 @@ public class MonsterCreationWindow : EditorWindow
         {
             CreateAttackAnimation();
         }
+
+        if (GUILayout.Button("Create Animator Controller"))
+        {
+            CreateAnimatorController();
+        }
+    }
+
+    private void CreateAnimatorController()
+    {
+        if (string.IsNullOrWhiteSpace(monsterName))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Name cannot be empty.",
+                "OK");
+
+            return;
+        }
+
+        string rootPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}";
+
+        string idleAnimationPath =
+            $"{rootPath}/Idle/Animations/{monsterName}_Idle.anim";
+
+        string walkAnimationPath =
+            $"{rootPath}/Walk/Animations/{monsterName}_Walk.anim";
+
+        string attackAnimationPath =
+            $"{rootPath}/Attack/Animations/{monsterName}_Attack.anim";
+
+        string controllerPath =
+            $"{rootPath}/Data/{monsterName}.controller";
+
+        AnimationClip idleClip =
+            AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                idleAnimationPath);
+
+        AnimationClip walkClip =
+            AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                walkAnimationPath);
+
+        AnimationClip attackClip =
+            AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                attackAnimationPath);
+
+        if (idleClip == null ||
+            walkClip == null ||
+            attackClip == null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Idle, Walk and Attack animations must exist first.",
+                "OK");
+
+            return;
+        }
+
+        if (AssetDatabase.LoadAssetAtPath<AnimatorController>(
+                controllerPath) != null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Animator Controller already exists.",
+                "OK");
+
+            return;
+        }
+
+        AnimatorController controller =
+            AnimatorController.CreateAnimatorControllerAtPath(
+                controllerPath);
+
+        // 修改原因：自動建立所有共用魔物 Animator 需要的參數，
+        // 避免每新增一種魔物都手動新增相同參數。
+        controller.AddParameter(
+            "IsWalking",
+            AnimatorControllerParameterType.Bool);
+
+        controller.AddParameter(
+            "Attack",
+            AnimatorControllerParameterType.Trigger);
+
+        AnimatorStateMachine stateMachine =
+            controller.layers[0].stateMachine;
+
+        // 修改原因：自動建立標準 Idle、Walk、Attack 狀態，
+        // 避免每新增一種魔物都手動拖入 Animation Clip。
+        AnimatorState idleState =
+            stateMachine.AddState(
+                $"{monsterName}_Idle");
+
+        AnimatorState walkState =
+            stateMachine.AddState(
+                $"{monsterName}_Walk");
+
+        AnimatorState attackState =
+            stateMachine.AddState(
+                $"{monsterName}_Attack");
+
+        idleState.motion = idleClip;
+        walkState.motion = walkClip;
+        attackState.motion = attackClip;
+
+        // 修改原因：自動建立 Idle → Walk 切換，
+        // 當 IsWalking 為 true 時立即進入 Walk。
+        AnimatorStateTransition idleToWalk =
+            idleState.AddTransition(walkState);
+
+        idleToWalk.hasExitTime = false;
+        idleToWalk.duration = 0f;
+
+        idleToWalk.AddCondition(
+            AnimatorConditionMode.If,
+            0f,
+            "IsWalking");
+
+        // 修改原因：自動建立 Walk → Idle 切換，
+        // 當 IsWalking 為 false 時立即回到 Idle。
+        AnimatorStateTransition walkToIdle =
+            walkState.AddTransition(idleState);
+
+        walkToIdle.hasExitTime = false;
+        walkToIdle.duration = 0f;
+
+        walkToIdle.AddCondition(
+            AnimatorConditionMode.IfNot,
+            0f,
+            "IsWalking");
+
+        // 修改原因：自動建立 Idle → Attack 切換，
+        // 當 Attack Trigger 被觸發時立即播放攻擊動畫。
+        AnimatorStateTransition idleToAttack =
+            idleState.AddTransition(attackState);
+
+        idleToAttack.hasExitTime = false;
+        idleToAttack.duration = 0f;
+
+        idleToAttack.AddCondition(
+            AnimatorConditionMode.If,
+            0f,
+            "Attack");
+
+        // 修改原因：Attack 動畫播放完成後自動回到 Idle，
+        // 不需要額外 Trigger 或 Bool 控制回程。
+        AnimatorStateTransition attackToIdle =
+            attackState.AddTransition(idleState);
+
+        attackToIdle.hasExitTime = true;
+        attackToIdle.exitTime = 1f;
+        attackToIdle.duration = 0f;
+
+        // 修改原因：魔物生成後預設先進入 Idle 狀態。
+        stateMachine.defaultState = idleState;
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Selection.activeObject = controller;
+
+        Debug.Log(
+            $"Monster Creation Tool：已建立 {monsterName} Animator Controller。");
     }
 
     private void CreateAttackAnimation()
