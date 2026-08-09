@@ -82,6 +82,182 @@ public class MonsterCreationWindow : EditorWindow
         {
             CreateAnimatorController();
         }
+
+        if (GUILayout.Button("Create Monster Prefab"))
+        {
+            CreateMonsterPrefab();
+        }
+    }
+
+    private void CreateMonsterPrefab()
+    {
+        if (string.IsNullOrWhiteSpace(monsterName))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Name cannot be empty.",
+                "OK");
+
+            return;
+        }
+
+        string rootPath =
+            $"Assets/Ragnarok/Monsters/{monsterName}";
+
+        string prefabFolderPath =
+            $"{rootPath}/Prefabs";
+
+        string prefabPath =
+            $"{prefabFolderPath}/Monster_{monsterName}.prefab";
+
+        string definitionPath =
+            $"{rootPath}/Data/{monsterName}Definition.asset";
+
+        string controllerPath =
+            $"{rootPath}/Data/{monsterName}.controller";
+
+        string idleFramesPath =
+            $"{rootPath}/Idle/Frames";
+
+        if (!AssetDatabase.IsValidFolder(prefabFolderPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Prefabs folder does not exist.",
+                "OK");
+
+            return;
+        }
+
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(
+                prefabPath) != null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Prefab already exists.",
+                "OK");
+
+            return;
+        }
+
+        MonsterDefinition definition =
+            AssetDatabase.LoadAssetAtPath<MonsterDefinition>(
+                definitionPath);
+
+        AnimatorController controller =
+            AssetDatabase.LoadAssetAtPath<AnimatorController>(
+                controllerPath);
+
+        if (definition == null || controller == null)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "Monster Definition and Animator Controller must exist first.",
+                "OK");
+
+            return;
+        }
+
+        string[] idleSpriteGuids =
+            AssetDatabase.FindAssets(
+                "t:Sprite",
+                new[] { idleFramesPath });
+
+        if (idleSpriteGuids.Length == 0)
+        {
+            EditorUtility.DisplayDialog(
+                "Monster Creation Tool",
+                "No Idle sprite was found.",
+                "OK");
+
+            return;
+        }
+
+        System.Array.Sort(
+            idleSpriteGuids,
+            (a, b) =>
+            {
+                string pathA =
+                    AssetDatabase.GUIDToAssetPath(a);
+
+                string pathB =
+                    AssetDatabase.GUIDToAssetPath(b);
+
+                return string.CompareOrdinal(
+                    pathA,
+                    pathB);
+            });
+
+        string firstIdleSpritePath =
+            AssetDatabase.GUIDToAssetPath(
+                idleSpriteGuids[0]);
+
+        Sprite firstIdleSprite =
+            AssetDatabase.LoadAssetAtPath<Sprite>(
+                firstIdleSpritePath);
+
+        GameObject monsterObject =
+            new GameObject(
+                $"Monster_{monsterName}");
+
+        // 修改原因：建立魔物 Prefab 的基本視覺元件，
+        // 並以第一張 Idle Sprite 作為初始顯示圖片。
+        SpriteRenderer spriteRenderer =
+            monsterObject.AddComponent<SpriteRenderer>();
+
+        spriteRenderer.sprite =
+            firstIdleSprite;
+
+        Animator animator =
+            monsterObject.AddComponent<Animator>();
+
+        animator.runtimeAnimatorController =
+            controller;
+
+        // 修改原因：所有標準魔物共用同一套玩家偵測、
+        // 追蹤與攻擊邏輯。
+        MonsterPlayerDetector detector =
+            monsterObject.AddComponent<MonsterPlayerDetector>();
+
+        // 修改原因：自動將 Prefab 自己的 Animator
+        // 指定給 MonsterPlayerDetector。
+        SerializedObject detectorObject =
+            new SerializedObject(detector);
+
+        detectorObject.FindProperty(
+            "monsterAnimator").objectReferenceValue =
+            animator;
+
+        detectorObject.ApplyModifiedPropertiesWithoutUndo();
+
+        MonsterIdentity identity =
+            monsterObject.AddComponent<MonsterIdentity>();
+
+        // 修改原因：自動指定對應的 MonsterDefinition，
+        // 讓 MonsterManager 可依 MonsterId 辨識魔物種類。
+        SerializedObject identityObject =
+            new SerializedObject(identity);
+
+        identityObject.FindProperty(
+            "monsterDefinition").objectReferenceValue =
+            definition;
+
+        identityObject.ApplyModifiedPropertiesWithoutUndo();
+
+        GameObject prefab =
+            PrefabUtility.SaveAsPrefabAsset(
+                monsterObject,
+                prefabPath);
+
+        DestroyImmediate(monsterObject);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Selection.activeObject = prefab;
+
+        Debug.Log(
+            $"Monster Creation Tool：已建立 Monster_{monsterName} Prefab。");
     }
 
     private void CreateAnimatorController()
