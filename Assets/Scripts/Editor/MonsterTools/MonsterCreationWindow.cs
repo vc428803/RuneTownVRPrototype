@@ -6,6 +6,7 @@ using UnityEditor.Animations;
 
 public class MonsterCreationWindow : EditorWindow
 {
+    
     private string monsterName = string.Empty;
     private string monsterId = string.Empty;
     private string displayName = string.Empty;
@@ -24,6 +25,10 @@ public class MonsterCreationWindow : EditorWindow
 
     // 修改原因：設定此魔物在指定區域預設生成的數量。
     private int spawnCount = 1;
+
+    // 修改原因：不同魔物 Sprite 的圖片高度與透明留白不同，
+    // 允許各魔物自行設定 Visual 的垂直顯示位置。
+    private float visualOffsetY = 0.5f;
 
     [MenuItem("RuneTown/Monsters/Monster Creation Tool")]
     public static void ShowWindow()
@@ -93,6 +98,10 @@ public class MonsterCreationWindow : EditorWindow
         spawnCount = Mathf.Max(
             0,
             spawnCount);
+
+        visualOffsetY = EditorGUILayout.FloatField(
+            "Visual Offset Y",
+            visualOffsetY);
 
         EditorGUILayout.Space();
 
@@ -393,8 +402,10 @@ public class MonsterCreationWindow : EditorWindow
         visualObject.transform.SetParent(
             monsterObject.transform);
 
+        // 修改原因：不同魔物的圖片高度與透明留白不同，
+        // 建立 Prefab 時使用工具中設定的 Visual Offset Y。
         visualObject.transform.localPosition =
-            new Vector3(0f, 0.5f, 0f);
+            new Vector3(0f, visualOffsetY, 0f);
 
         visualObject.transform.localRotation =
             Quaternion.identity;
