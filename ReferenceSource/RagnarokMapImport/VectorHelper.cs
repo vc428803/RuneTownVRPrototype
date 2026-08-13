@@ -18,4 +18,16 @@ public static class VectorHelper
     {
         return (value - from1) / (to1 - from1) * (to2 - from2) + from2;
     }
+
+    // 修改原因：RoMapSharedMeshData 建立地圖 Mesh 時需要計算四邊形平均法線，
+    // 因此保留 RebuildClient 原本的四邊形法線計算邏輯。
+    public static Vector3 CalcQuadNormal(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4)
+    {
+        var c1 = Vector3.Cross(v2 - v1, v3 - v1);
+        var c2 = Vector3.Cross(v4 - v2, v1 - v2);
+        var c3 = Vector3.Cross(v3 - v4, v2 - v4);
+        var c4 = Vector3.Cross(v1 - v3, v4 - v3);
+
+        return Vector3.Normalize((c1 + c2 + c3 + c4) / 4);
+    }
 }
