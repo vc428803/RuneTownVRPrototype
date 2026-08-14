@@ -1,0 +1,97 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a3b2a1af08a78945ae023b4e37d12e2, type: 3}
+  m_Name: gl_chyard
+  m_EditorClassIdentifier: Assembly-CSharp-Editor::Assets.Scripts.MapEditor.RoMapData
+  Width: 160
+  Height: 160
+  InitialSize: {x: 150, y: 150}
+  Textures:
+  - {fileID: 2800000, guid: b692543a38c7b4445924ec167d882ab9, type: 3}
+  - {fileID: 2800000, guid: aa707aaabedf45d45937e20994610328, type: 3}
+  - {fileID: 2800000, guid: 35a2df21d9d93e94ba04d69f5423f9cb, type: 3}
+  - {fileID: 2800000, guid: f8d8b5174f5dae748a7acd6869c1b49c, type: 3}
+  - {fileID: 2800000, guid: faddccd4cd00b464fa97e247e4cd7352, type: 3}
+  - {fileID: 2800000, guid: 8643aa04602681948a5eaca9a307c3d9, type: 3}
+  - {fileID: 2800000, guid: 764a537bd0177f7478891a1c435511d3, type: 3}
+  - {fileID: 2800000, guid: 5caf61f9a64f3b04a81fbea4b343e099, type: 3}
+  - {fileID: 2800000, guid: f3f40bbf029943e4b9c5882cb90e59e0, type: 3}
+  - {fileID: 2800000, guid: b32a13d71400ae945b0cfcda28f68fde, type: 3}
+  - {fileID: 2800000, guid: b8a381c9df2618e4ab90b8e5fc769b2f, type: 3}
+  Atlas: {fileID: 2800000, guid: be48dae36c8ef174f9f3ae9fac9486f4, type: 3}
+  AtlasRects:
+  - serializedVersion: 2
+    x: 0
+    y: 0
+    width: 0.25
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.25390625
+    y: 0
+    width: 0.25
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.5078125
+    y: 0
+    width: 0.25
+    height: 0.125
+  - serializedVersion: 2
+    x: 0
+    y: 0.12695312
+    width: 0.25
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.25390625
+    y: 0.12695312
+    width: 0.25
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.5078125
+    y: 0.12695312
+    width: 0.25
+    height: 0.125
+  - serializedVersion: 2
+    x: 0
+    y: 0.25390625
+    width: 0.25
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.25390625
+    y: 0.25390625
+    width: 0.25
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.5078125
+    y: 0.25390625
+    width: 0.25
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.76171875
+    y: 0
+    width: 0.0078125
+    height: 0.00390625
+  - serializedVersion: 2
+    x: 0
+    y: 0.38085938
+    width: 0.25
+    height: 0.125
+  IsWalkTable: 0
+  WalkData: {fileID: 0}
+  WalkCellData: {fileID: 0}
+  Water:
+    Level: 0
+    Type: 0
+    WaveHeight: 0
+    WaveSpeed: 0
+    WavePitch: 0
+    AnimSpeed: 0
+    Images: []

@@ -1,4 +1,5 @@
 using System.IO;
+using Assets.Scripts.MapEditor;
 using Assets.Scripts.MapEditor.Editor;
 using UnityEditor;
 using UnityEngine;
@@ -37,9 +38,36 @@ public static class RuneTownMapImportTestWindow
 
             AssetDatabase.Refresh();
 
+            // 修改原因：將解析完成的 RoMapData 儲存成 Unity Asset，
+            // 讓後續 Atlas 建立與 Chunk Mesh 生成可以引用同一份地圖資料。
+            var mapAssetPath = Path.Combine(
+                outputPath,
+                mapData.name + ".asset"
+            ).Replace("\\", "/");
+
+            if (AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath) == null)
+            {
+                AssetDatabase.CreateAsset(mapData, mapAssetPath);
+                AssetDatabase.SaveAssets();
+            }
+            else
+            {
+                // 修改原因：測試階段避免重複匯入同一張地圖時 CreateAsset 報錯。
+                Debug.LogWarning(
+                    $"[RuneTown Map Import] Map asset already exists: {mapAssetPath}"
+                );
+            }
+
+            // 修改原因：RoMapChunk 需要 Atlas 與 AtlasRects 才能正確建立貼圖 UV，
+            // 因此在進入 Mesh 測試前先建立地圖 Texture Atlas。
+            mapData.RebuildAtlas();
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
             Debug.Log(
                 $"[RuneTown Map Import] GND import success: {mapData.name}, " +
-                $"Size={mapData.Width}x{mapData.Height}"
+                $"Size={mapData.Width}x{mapData.Height}, Asset={mapAssetPath}"
             );
         }
         catch (System.Exception ex)
