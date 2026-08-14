@@ -77,4 +77,58 @@ public static class RuneTownMapImportTestWindow
             );
         }
     }
+
+    [MenuItem("RuneTown/Map Import/Generate Single Chunk Test")]
+    public static void GenerateSingleChunkTest()
+    {
+        // 修改原因：先用已匯入完成的 gl_chyard RoMapData 建立單一 16x16 Chunk，
+        // 驗證 RuneTown 的 RoMapData → RoMapChunk → MeshBuilder 地形生成流程。
+        const string mapAssetPath =
+            "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+        var mapData = AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
+
+        if (mapData == null)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+            );
+            return;
+        }
+
+        // 修改原因：第一階段只建立一個測試 Chunk，
+        // 避免一次生成整張 160x160 地圖，方便先確認 Mesh、UV 與高度資料是否正常。
+        var chunkObject = new GameObject("gl_chyard_TestChunk_0_0");
+
+        var chunk = chunkObject.AddComponent<RoMapChunk>();
+
+        // 修改原因：建立最小測試 Material，
+        // RoMapChunk 會自行將 MapData.Atlas 指派給 Material.mainTexture。
+        var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        material.name = "gl_chyard_TestMaterial";
+
+        var bounds = new RectInt(
+            0,
+            0,
+            16,
+            16
+        );
+
+        chunk.Initialize(
+            mapData,
+            material,
+            material,
+            bounds,
+            2f,
+            false
+        );
+
+        Selection.activeGameObject = chunkObject;
+        SceneView.FrameLastActiveSceneView();
+
+        Debug.Log(
+            "[RuneTown Map Import] Single Chunk generated successfully: " +
+            "gl_chyard bounds=(0,0,16,16)"
+        );
+    }
 }

@@ -30,39 +30,59 @@ namespace Assets.Scripts.MapEditor
         //private bool needRebuild;
         private float delayToRebuild = 5f;
 
-        public void Initialize(RoMapData mapData, Material material, Material shadowMaterial, RectInt bounds, float tileSize, bool paintEmptyTilesBlack)
-        {
-            ChunkBounds = bounds;
-            MapData = mapData;
-
-            MeshRenderer = gameObject.GetOrAddComponent<MeshRenderer>();
-            MeshFilter = gameObject.GetOrAddComponent<MeshFilter>();
-            //Material = new Material(material);
-            Material = material;
-            ShadowMaterial = material;
-
-            if (!MapData.IsWalkTable)
+        public void Initialize(
+                RoMapData mapData,
+                Material material,
+                Material shadowMaterial,
+                RectInt bounds,
+                float tileSize,
+                bool paintEmptyTilesBlack)
             {
-                MeshRenderer.shadowCastingMode = ShadowCastingMode.TwoSided;
+                // 修改原因：暫時加入初始化階段診斷訊息，
+                // 用來定位第一次 Chunk Mesh 測試發生 NullReferenceException 的實際位置。
+                Debug.Log("[RoMapChunk] Initialize 1 - Start");
+
+                ChunkBounds = bounds;
+                MapData = mapData;
+
+                Debug.Log($"[RoMapChunk] Initialize 2 - MapData={(MapData != null)}, Atlas={(MapData?.Atlas != null)}, Material={(material != null)}");
+
+                MeshRenderer = gameObject.GetOrAddComponent<MeshRenderer>();
+                MeshFilter = gameObject.GetOrAddComponent<MeshFilter>();
+
+                Debug.Log("[RoMapChunk] Initialize 3 - Renderer / Filter ready");
+
+                Material = material;
+                ShadowMaterial = material;
+
+                if (!MapData.IsWalkTable)
+                {
+                    MeshRenderer.shadowCastingMode = ShadowCastingMode.TwoSided;
+                }
+                else
+                {
+                    MeshRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                    MeshRenderer.receiveShadows = false;
+                }
+
+                MeshRenderer.lightProbeUsage = LightProbeUsage.Off;
+
+                Debug.Log("[RoMapChunk] Initialize 4 - Before Collider");
+
+                Collider = gameObject.AddComponent<MeshCollider>();
+
+                MeshRenderer.material = Material;
+
+                Debug.Log("[RoMapChunk] Initialize 5 - Before RebuildMeshData");
+
+                RebuildMeshData(tileSize, paintEmptyTilesBlack);
+
+                Debug.Log("[RoMapChunk] Initialize 6 - After RebuildMeshData");
+
+                RebuildUvs();
+
+                Debug.Log("[RoMapChunk] Initialize 7 - Finished");
             }
-            else
-            {
-                MeshRenderer.shadowCastingMode = ShadowCastingMode.Off;
-                MeshRenderer.receiveShadows = false;
-            }
-
-            MeshRenderer.lightProbeUsage = LightProbeUsage.Off;
-            
-
-            Collider = gameObject.AddComponent<MeshCollider>();
-
-            MeshRenderer.material = Material;
-
-            RebuildMeshData(tileSize, paintEmptyTilesBlack);
-            RebuildUvs();
-        }
-
-        
         
         public int GetLayerMaskForChunk()
         {
@@ -314,5 +334,7 @@ namespace Assets.Scripts.MapEditor
             //    //Mesh.UploadMeshData(false);
             //}
         }
+
+
     }
 }
