@@ -46,7 +46,7 @@ public static class RuneTownMapImportTestWindow
             ).Replace("\\", "/");
 
             var existingMapData =
-    AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
+                AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
 
             if (existingMapData == null)
             {
@@ -128,9 +128,11 @@ public static class RuneTownMapImportTestWindow
         var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         material.name = "gl_chyard_TestMaterial";
 
+        // 修改原因：改用 gl_chyard 地圖中央區域測試 Chunk，
+        // 避免地圖邊界的大型高度落差影響對 Mesh 是否正常的判斷。
         var bounds = new RectInt(
-            0,
-            0,
+            64,
+            64,
             16,
             16
         );
@@ -147,9 +149,108 @@ public static class RuneTownMapImportTestWindow
         Selection.activeGameObject = chunkObject;
         SceneView.FrameLastActiveSceneView();
 
+        // 修改原因：測試 Chunk 位置會調整，改為輸出實際 Bounds，
+        // 避免 Console 顯示舊的固定座標造成誤判。
         Debug.Log(
-            "[RuneTown Map Import] Single Chunk generated successfully: " +
-            "gl_chyard bounds=(0,0,16,16)"
+            $"[RuneTown Map Import] Single Chunk generated successfully: " +
+            $"gl_chyard bounds=({bounds.x},{bounds.y},{bounds.width},{bounds.height})"
         );
     }
+
+    [MenuItem("RuneTown/Map Import/Generate 2x2 Chunks Test")]
+    public static void Generate2x2ChunksTest()
+    {
+        // 修改原因：以地圖中央區域建立 2x2、共 4 個相鄰 Chunk，
+        // 驗證 Chunk 之間的高度、UV 與邊界是否可以正確銜接。
+        const string mapAssetPath =
+            "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+        var mapData =
+            AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
+
+        if (mapData == null)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+            );
+            return;
+        }
+
+        // 修改原因：將本次 2x2 測試產生的 Chunk 集中在同一個父物件下，
+        // 方便 Hierarchy 檢查與後續一次刪除。
+        var parentObject =
+            new GameObject("gl_chyard_TestChunks_2x2");
+
+        var material =
+            new Material(
+                Shader.Find("Universal Render Pipeline/Lit")
+            );
+
+        material.name = "gl_chyard_TestMaterial_2x2";
+
+        const int startX = 64;
+        const int startY = 64;
+        const int chunkSize = 16;
+        const float tileSize = 2f;
+
+        for (int chunkY = 0; chunkY < 2; chunkY++)
+        {
+            for (int chunkX = 0; chunkX < 2; chunkX++)
+            {
+                int boundsX =
+                    startX + chunkX * chunkSize;
+
+                int boundsY =
+                    startY + chunkY * chunkSize;
+
+                var bounds =
+                    new RectInt(
+                        boundsX,
+                        boundsY,
+                        chunkSize,
+                        chunkSize
+                    );
+
+                var chunkObject =
+                    new GameObject(
+                        $"Chunk_{boundsX}_{boundsY}"
+                    );
+
+                chunkObject.transform.SetParent(
+                    parentObject.transform
+                );
+
+                // 修改原因：RoMapChunk 的 Mesh 計算會依照實際地圖 Chunk 座標扣除
+                // transform.position，因此位置必須與原 RebuildClient 的 Chunk 排列方式一致。
+                chunkObject.transform.localPosition =
+                    new Vector3(
+                        boundsX * tileSize,
+                        0f,
+                        boundsY * tileSize
+                    );
+
+                var chunk =
+                    chunkObject.AddComponent<RoMapChunk>();
+
+                chunk.Initialize(
+                    mapData,
+                    material,
+                    material,
+                    bounds,
+                    tileSize,
+                    false
+                );
+            }
+        }
+
+        Selection.activeGameObject = parentObject;
+        SceneView.FrameLastActiveSceneView();
+
+        Debug.Log(
+            "[RuneTown Map Import] 2x2 Chunk test generated successfully: " +
+            "start=(64,64), chunkSize=16, count=4"
+        );
+    }
+
+
 }
