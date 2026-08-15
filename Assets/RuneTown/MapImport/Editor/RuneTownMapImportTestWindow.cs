@@ -157,6 +157,110 @@ public static class RuneTownMapImportTestWindow
         );
     }
 
+    [MenuItem("RuneTown/Map Import/Generate Full GND Terrain Test")]
+    public static void GenerateFullGndTerrainTest()
+    {
+        // 修改原因：建立完整 gl_chyard GND 地形測試，
+        // 將 160x160 Cell 依 16x16 分割成 10x10、共 100 個 Chunk。
+        const string mapAssetPath =
+            "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+        var mapData =
+            AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
+
+        if (mapData == null)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+            );
+            return;
+        }
+
+        const int chunkSize = 16;
+        const float tileSize = 2f;
+
+        int chunkCountX =
+            mapData.Width / chunkSize;
+
+        int chunkCountY =
+            mapData.Height / chunkSize;
+
+        // 修改原因：將完整 GND 地形集中在單一父物件，
+        // 方便整組移動、檢查以及後續刪除測試結果。
+        var parentObject =
+            new GameObject("gl_chyard_FullGndTerrain");
+
+        var material =
+            new Material(
+                Shader.Find("Universal Render Pipeline/Lit")
+            );
+
+        material.name = "gl_chyard_FullGndMaterial";
+
+        int generatedChunkCount = 0;
+
+        for (int chunkY = 0; chunkY < chunkCountY; chunkY++)
+        {
+            for (int chunkX = 0; chunkX < chunkCountX; chunkX++)
+            {
+                int boundsX =
+                    chunkX * chunkSize;
+
+                int boundsY =
+                    chunkY * chunkSize;
+
+                var bounds =
+                    new RectInt(
+                        boundsX,
+                        boundsY,
+                        chunkSize,
+                        chunkSize
+                    );
+
+                var chunkObject =
+                    new GameObject(
+                        $"Chunk_{chunkX}_{chunkY}"
+                    );
+
+                chunkObject.transform.SetParent(
+                    parentObject.transform
+                );
+
+                // 修改原因：沿用原 RebuildClient 的 Chunk 座標排列方式，
+                // 讓 Chunk 世界位置與 GND Cell 座標維持一致。
+                chunkObject.transform.localPosition =
+                    new Vector3(
+                        boundsX * tileSize,
+                        0f,
+                        boundsY * tileSize
+                    );
+
+                var chunk =
+                    chunkObject.AddComponent<RoMapChunk>();
+
+                chunk.Initialize(
+                    mapData,
+                    material,
+                    material,
+                    bounds,
+                    tileSize,
+                    false
+                );
+
+                generatedChunkCount++;
+            }
+        }
+
+        Selection.activeGameObject = parentObject;
+        SceneView.FrameLastActiveSceneView();
+
+        Debug.Log(
+            $"[RuneTown Map Import] Full GND terrain generated successfully: " +
+            $"{mapData.name}, Size={mapData.Width}x{mapData.Height}, " +
+            $"Chunks={chunkCountX}x{chunkCountY}, Total={generatedChunkCount}"
+        );
+    }
+
     [MenuItem("RuneTown/Map Import/Generate 2x2 Chunks Test")]
     public static void Generate2x2ChunksTest()
     {
