@@ -45,21 +45,42 @@ public static class RuneTownMapImportTestWindow
                 mapData.name + ".asset"
             ).Replace("\\", "/");
 
-            if (AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath) == null)
+            var existingMapData =
+    AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
+
+            if (existingMapData == null)
             {
                 AssetDatabase.CreateAsset(mapData, mapAssetPath);
                 AssetDatabase.SaveAssets();
+
+                // 修改原因：建立 Asset 後重新從 AssetDatabase 載入，
+                // 確保後續 RebuildAtlas 可以取得有效的 Unity Asset 路徑。
+                mapData =
+                    AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
             }
             else
             {
-                // 修改原因：測試階段避免重複匯入同一張地圖時 CreateAsset 報錯。
-                Debug.LogWarning(
-                    $"[RuneTown Map Import] Map asset already exists: {mapAssetPath}"
+                // 修改原因：重複匯入同一張 GND 時更新既有 RoMapData，
+                // 保留原本 Asset GUID，避免刪除重建造成其他引用失效。
+                EditorUtility.CopySerialized(
+                    mapData,
+                    existingMapData
+                );
+
+                Object.DestroyImmediate(mapData);
+
+                mapData = existingMapData;
+
+                EditorUtility.SetDirty(mapData);
+                AssetDatabase.SaveAssets();
+
+                Debug.Log(
+                    $"[RuneTown Map Import] Updated existing map asset: {mapAssetPath}"
                 );
             }
 
             // 修改原因：RoMapChunk 需要 Atlas 與 AtlasRects 才能正確建立貼圖 UV，
-            // 因此在進入 Mesh 測試前先建立地圖 Texture Atlas。
+            // 並確保此時 mapData 已經是 AssetDatabase 中具有有效路徑的 RoMapData。
             mapData.RebuildAtlas();
 
             AssetDatabase.SaveAssets();
