@@ -248,164 +248,368 @@ namespace Assets.Scripts.MapEditor.Editor
 
 		}
 
-		public GameObject CompileNode(GameObject parentGameObject, RsmNode node, Material mat)
-		{
-			var go = new GameObject(node.Name);
-			var mf = go.AddComponent<MeshFilter>();
-			var mr = go.AddComponent<MeshRenderer>();
-			var mc = go.AddComponent<MeshCollider>();
+        public GameObject CompileNode(GameObject parentGameObject, RsmNode node, Material mat)
+        {
+            var go = new GameObject(node.Name);
+            var mf = go.AddComponent<MeshFilter>();
+            var mr = go.AddComponent<MeshRenderer>();
+            var mc = go.AddComponent<MeshCollider>();
 
-			go.layer = LayerMask.NameToLayer("Object");
-			go.isStatic = true;
-			mr.material = mat;
-			mr.receiveGI = ReceiveGI.Lightmaps;
-			mr.shadowCastingMode = ShadowCastingMode.TwoSided;
-			mc.cookingOptions = MeshColliderCookingOptions.CookForFasterSimulation |
-								MeshColliderCookingOptions.EnableMeshCleaning |
-								MeshColliderCookingOptions.WeldColocatedVertices |
-								MeshColliderCookingOptions.UseFastMidphase;
+            go.layer = LayerMask.NameToLayer("Object");
+            go.isStatic = true;
+            mr.material = mat;
+            mr.receiveGI = ReceiveGI.Lightmaps;
+            mr.shadowCastingMode = ShadowCastingMode.TwoSided;
 
-			go.transform.parent = parentGameObject.transform;
+            mc.cookingOptions =
+                MeshColliderCookingOptions.CookForFasterSimulation |
+                MeshColliderCookingOptions.EnableMeshCleaning |
+                MeshColliderCookingOptions.WeldColocatedVertices |
+                MeshColliderCookingOptions.UseFastMidphase;
 
-			var position = node.Position;
-			var rotation = Quaternion.AngleAxis(node.RotationAngle * Mathf.Rad2Deg, node.RotationAxis).FlipY();
-			var scale = node.Scale;
-			var offset = node.Offset;
+            go.transform.parent = parentGameObject.transform;
 
-			if (node.PosKeyFrames.Count > 0)
-				position = node.PosKeyFrames[0].Position;
-			if (node.RotationKeyFrames.Count > 0)
-				rotation = node.RotationKeyFrames[0].Rotation;
+            var position = node.Position;
+            var rotation =
+                Quaternion.AngleAxis(
+                    node.RotationAngle * Mathf.Rad2Deg,
+                    node.RotationAxis
+                ).FlipY();
 
-			go.transform.localPosition = position.FlipY();
-			go.transform.localRotation = rotation;
-			go.transform.localScale = scale;
+            var scale = node.Scale;
+            var offset = node.Offset;
 
-			//var vTrans = new List<Vector3>();
-			var vTrans2 = new List<Vector3>();
-			var tris = new List<RsmTriangle>();
+            if (node.PosKeyFrames.Count > 0)
+                position = node.PosKeyFrames[0].Position;
 
-			foreach (var f in node.Faces)
-			{
-				var tri = new RsmTriangle() { TwoSided = f.TwoSided };
+            if (node.RotationKeyFrames.Count > 0)
+                rotation = node.RotationKeyFrames[0].Rotation;
 
-				var realTexId = node.TextureIds[f.TextureId];
+            go.transform.localPosition = position.FlipY();
+            go.transform.localRotation = rotation;
+            go.transform.localScale = scale;
 
-				for (var i = 0; i < 3; i++)
-				{
-					var v = node.Vertices[f.VertexIds[i]].FlipY() + offset.FlipY();
-					//vTrans.Add(go.transform.TransformPoint(v));
-					tri.Vertices[i] = v;
-					tri.UVs[i] = VectorHelper.RemapUV(node.UVs[f.UVIds[i]], atlasRects[realTexId]);
-					tri.Colors[i] = node.Colors[f.UVIds[i]];
-				}
+            var vTrans2 = new List<Vector3>();
+            var tris = new List<RsmTriangle>();
 
-				tri.CalcNormals();
-				tris.Add(tri);
-			}
-			
-			foreach(var v in node.Vertices)
-				vTrans2.Add(go.transform.TransformPoint(v.FlipY() + offset.FlipY()));
+            foreach (var f in node.Faces)
+            {
+                var tri =
+                    new RsmTriangle()
+                    {
+                        TwoSided = f.TwoSided
+                    };
 
-			if (model.ShadingType == RsmShadingType.Smooth)
-				SmoothNodeTriangles(node, tris);
+                var realTexId =
+                    node.TextureIds[f.TextureId];
 
-			if (vTrans2.Count > 0)
-				node.Bounds = GeometryUtility.CalculateBounds(vTrans2.ToArray(), Matrix4x4.identity);
-			else
-				node.Bounds = new Bounds(Vector3.zero, Vector3.zero);
+                for (var i = 0; i < 3; i++)
+                {
+                    var v =
+                        node.Vertices[f.VertexIds[i]].FlipY()
+                        + offset.FlipY();
 
-			var mb = new MeshBuilder();
+                    tri.Vertices[i] = v;
 
-			foreach (var t in tris)
-			{
-				mb.AddFullTriangle(t.Vertices, t.FlippedNormals, t.UVs, t.Colors, new[] { 2, 1, 0 });
+                    tri.UVs[i] =
+                        VectorHelper.RemapUV(
+                            node.UVs[f.UVIds[i]],
+                            atlasRects[realTexId]
+                        );
 
-				if (t.TwoSided)
-					mb.AddFullTriangle(t.Vertices, t.Normals, t.UVs, t.Colors, new[] { 0, 1, 2 });
-			}
+                    tri.Colors[i] =
+                        node.Colors[f.UVIds[i]];
+                }
 
-			var mesh = mb.Build(node.Name, true);
-			mf.sharedMesh = mesh;
-			mc.sharedMesh = mesh;
-			if (tris.Any(t => t.TwoSided))
-				mr.shadowCastingMode = ShadowCastingMode.On; //disable two sided shadows if the model has any two sided faces
+                tri.CalcNormals();
+                tris.Add(tri);
+            }
 
-			if (node.Children.Count > 0)
-			{
-				foreach (var child in node.Children)
-				{
-					CompileNode(go, child, mat);
-				}
-			}
+            foreach (var v in node.Vertices)
+            {
+                vTrans2.Add(
+                    go.transform.TransformPoint(
+                        v.FlipY() + offset.FlipY()
+                    )
+                );
+            }
 
-			if (node.RotationKeyFrames.Count != 0 || node.PosKeyFrames.Count != 0)
-				go.ChangeStaticRecursive(false);
+            if (model.ShadingType == RsmShadingType.Smooth)
+            {
+                SmoothNodeTriangles(
+                    node,
+                    tris
+                );
+            }
 
-			if (string.IsNullOrWhiteSpace(node.ParentName))
-			{
-				var bounds = node.Bounds;
-				foreach (var n in model.RsmNodes)
-					bounds.Encapsulate(n.Bounds);
+            if (vTrans2.Count > 0)
+            {
+                node.Bounds =
+                    GeometryUtility.CalculateBounds(
+                        vTrans2.ToArray(),
+                        Matrix4x4.identity
+                    );
+            }
+            else
+            {
+                node.Bounds =
+                    new Bounds(
+                        Vector3.zero,
+                        Vector3.zero
+                    );
+            }
 
-				var centering = new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
-				//Debug.Log(centering);
-				go.transform.localPosition -= centering;
-				go.transform.localPosition *= 0.2f;
-				go.transform.localScale *= 0.2f;
-			}
+            var mb =
+                new MeshBuilder();
 
-			if (node.RotationKeyFrames.Count > 0)
-			{
-				var r = go.AddComponent<RoKeyframeRotator>();
-				var keyframes = new List<float>();
-				var rotations = new List<Quaternion>();
-				foreach (var k in node.RotationKeyFrames)
-				{
-					keyframes.Add(k.Frame / 1000f);
-					rotations.Add(k.Rotation);
-				}
+            foreach (var t in tris)
+            {
+                mb.AddFullTriangle(
+                    t.Vertices,
+                    t.FlippedNormals,
+                    t.UVs,
+                    t.Colors,
+                    new[] { 2, 1, 0 }
+                );
 
-				r.Keyframes = keyframes.ToArray();
-				r.Rotations = rotations.ToArray();
-			}
+                if (t.TwoSided)
+                {
+                    mb.AddFullTriangle(
+                        t.Vertices,
+                        t.Normals,
+                        t.UVs,
+                        t.Colors,
+                        new[] { 0, 1, 2 }
+                    );
+                }
+            }
 
-			//save Mesh
-			var meshPath = AssetHelper.GetAssetPath(Path.Combine("Assets/Models/mesh", savePath, baseName), Path.GetFileNameWithoutExtension(node.Name) + ".asset");
+            var mesh =
+                mb.Build(
+                    node.Name,
+                    true
+                );
 
-			AssetDatabase.CreateAsset(mesh, meshPath);
+            var meshPath =
+                AssetHelper.GetAssetPath(
+                    Path.Combine(
+                        "Assets/Models/mesh",
+                        savePath,
+                        baseName
+                    ),
+                    Path.GetFileNameWithoutExtension(node.Name)
+                    + ".asset"
+                );
 
-			return go;
-		}
+            // 修改原因：同一個 RSM 可能在 RSW 中被重複放置多次，
+            // 若 Mesh Asset 已存在就直接重用，避免重複 CreateAsset 造成資產衝突。
+            var existingMesh =
+                AssetDatabase.LoadAssetAtPath<Mesh>(
+                    meshPath
+                );
 
-		private Material CreateMaterial()
-		{
-			var mat = new Material(Shader.Find("Custom/ObjectShader"));
-			mat.mainTexture = atlas;
-			mat.SetFloat("_Glossiness", 0);
-			mat.SetColor("_SpecColor", new Color(0, 0, 0, 1));
-			mat.SetFloat("_Mode", 1);
+            if (existingMesh != null)
+            {
+                // 修改原因：避免 Object 在 System.Object 與 UnityEngine.Object 之間產生命名衝突。
+                UnityEngine.Object.DestroyImmediate(
+                    mesh
+                );
 
-			mat.SetOverrideTag("RenderType", "TransparentCutout");
-			mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-			mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
-			mat.SetInt("_ZWrite", 1);
-			mat.EnableKeyword("_ALPHATEST_ON");
-			mat.DisableKeyword("_ALPHABLEND_ON");
-			mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-			mat.renderQueue = (int)RenderQueue.AlphaTest;
+                mesh =
+                    existingMesh;
+            }
+            else
+            {
+                AssetDatabase.CreateAsset(
+                    mesh,
+                    meshPath
+                );
+            }
 
-			mat.doubleSidedGI = true;
-			mat.enableInstancing = true;
+            mf.sharedMesh =
+                mesh;
 
-			var matPath = AssetHelper.GetAssetPath(Path.Combine("Assets/Models/materials", savePath), Path.GetFileNameWithoutExtension(baseName) + ".mat");
+            mc.sharedMesh =
+                mesh;
 
-			AssetDatabase.CreateAsset(mat, matPath);
+            if (tris.Any(t => t.TwoSided))
+            {
+                mr.shadowCastingMode =
+                    ShadowCastingMode.On;
+            }
 
-			return mat;
-		}
+            if (node.Children.Count > 0)
+            {
+                foreach (var child in node.Children)
+                {
+                    CompileNode(
+                        go,
+                        child,
+                        mat
+                    );
+                }
+            }
 
-		public GameObject Compile()
+            if (node.RotationKeyFrames.Count != 0 ||
+                node.PosKeyFrames.Count != 0)
+            {
+                go.ChangeStaticRecursive(
+                    false
+                );
+            }
+
+            if (string.IsNullOrWhiteSpace(node.ParentName))
+            {
+                var bounds =
+                    node.Bounds;
+
+                foreach (var n in model.RsmNodes)
+                {
+                    bounds.Encapsulate(
+                        n.Bounds
+                    );
+                }
+
+                var centering =
+                    new Vector3(
+                        bounds.center.x,
+                        bounds.min.y,
+                        bounds.center.z
+                    );
+
+                go.transform.localPosition -=
+                    centering;
+
+                go.transform.localPosition *=
+                    0.2f;
+
+                go.transform.localScale *=
+                    0.2f;
+            }
+
+            if (node.RotationKeyFrames.Count > 0)
+            {
+                var r =
+                    go.AddComponent<RoKeyframeRotator>();
+
+                var keyframes =
+                    new List<float>();
+
+                var rotations =
+                    new List<Quaternion>();
+
+                foreach (var k in node.RotationKeyFrames)
+                {
+                    keyframes.Add(
+                        k.Frame / 1000f
+                    );
+
+                    rotations.Add(
+                        k.Rotation
+                    );
+                }
+
+                r.Keyframes =
+                    keyframes.ToArray();
+
+                r.Rotations =
+                    rotations.ToArray();
+            }
+
+            return go;
+        }
+        private Material CreateMaterial()
+        {
+            var matPath =
+                AssetHelper.GetAssetPath(
+                    Path.Combine(
+                        "Assets/Models/materials",
+                        savePath
+                    ),
+                    Path.GetFileNameWithoutExtension(baseName) + ".mat"
+                );
+
+            // 修改原因：同一個 RSM 可能在 RSW 中被重複放置多次，
+            // 若 Material 已經生成過就直接重用，避免重複 CreateAsset 造成資產衝突。
+            var existingMaterial =
+                AssetDatabase.LoadAssetAtPath<Material>(
+                    matPath
+                );
+
+            if (existingMaterial != null)
+            {
+                return existingMaterial;
+            }
+
+            var shader =
+                Shader.Find(
+                    "Custom/ObjectShader"
+                );
+
+            if (shader == null)
+            {
+                throw new System.Exception(
+                    "Custom/ObjectShader not found."
+                );
+            }
+
+            var mat =
+                new Material(
+                    shader
+                );
+
+            mat.mainTexture = atlas;
+            mat.SetFloat("_Glossiness", 0);
+            mat.SetColor("_SpecColor", new Color(0, 0, 0, 1));
+            mat.SetFloat("_Mode", 1);
+
+            mat.SetOverrideTag(
+                "RenderType",
+                "TransparentCutout"
+            );
+
+            mat.SetInt(
+                "_SrcBlend",
+                (int)UnityEngine.Rendering.BlendMode.One
+            );
+
+            mat.SetInt(
+                "_DstBlend",
+                (int)UnityEngine.Rendering.BlendMode.Zero
+            );
+
+            mat.SetInt(
+                "_ZWrite",
+                1
+            );
+
+            mat.EnableKeyword(
+                "_ALPHATEST_ON"
+            );
+
+            mat.DisableKeyword(
+                "_ALPHABLEND_ON"
+            );
+
+            mat.DisableKeyword(
+                "_ALPHAPREMULTIPLY_ON"
+            );
+
+            mat.renderQueue =
+                (int)RenderQueue.AlphaTest;
+
+            mat.doubleSidedGI = true;
+            mat.enableInstancing = true;
+
+            AssetDatabase.CreateAsset(
+                mat,
+                matPath
+            );
+
+            return mat;
+        }
+
+        public GameObject Compile()
 		{
 			var mat = CreateMaterial();
 
