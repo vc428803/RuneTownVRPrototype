@@ -43,4 +43,28 @@ public static class VectorHelper
 
         return Vector3.Normalize((c1 + c2 + c3 + c4) / 4);
     }
+
+    // 修改原因：RSM 模型匯入時需要依三角形三個頂點計算法線，
+    // 沿用 RebuildClient 的 CalcNormal 邏輯，避免改變原始模型光照方向。
+    public static Vector3 CalcNormal(Vector3 v1, Vector3 v2, Vector3 v3)
+    {
+        var side1 = v2 - v1;
+        var side2 = v3 - v1;
+
+        return Vector3.Cross(side1, side2).normalized;
+    }
+
+    // 修改原因：RSM 模型匯入時需要將 Ragnarok 座標系的 Y 軸方向轉成 Unity 使用方式。
+    public static Vector3 FlipY(this Vector3 v)
+    {
+        v.y = -v.y;
+        return v;
+    }
+
+    // 修改原因：RSM 模型匯入時需要同步轉換旋轉方向，沿用 RebuildClient 原本的 Quaternion FlipY 邏輯。
+    public static Quaternion FlipY(this Quaternion q)
+    {
+        var euler = q.eulerAngles;
+        return Quaternion.Euler(-euler.FlipY());
+    }
 }

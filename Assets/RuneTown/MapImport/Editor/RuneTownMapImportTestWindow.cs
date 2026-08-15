@@ -6,6 +6,31 @@ using UnityEngine;
 
 public static class RuneTownMapImportTestWindow
 {
+    [MenuItem("RuneTown/Map Import/Debug Object Shader")]
+    public static void DebugObjectShader()
+    {
+        // 修改原因：確認 ObjectShader 是否已被 Unity 正確匯入，
+        // 並比較 AssetDatabase 載入與 Shader.Find 的結果。
+        const string shaderPath =
+            "Assets/RuneTown/MapImport/Shaders/ObjectShader.shader";
+
+        var shaderAsset =
+            AssetDatabase.LoadAssetAtPath<Shader>(
+                shaderPath
+            );
+
+        var shaderFind =
+            Shader.Find(
+                "Custom/ObjectShader"
+            );
+
+        Debug.Log(
+            $"[RuneTown Map Import] ObjectShader Debug: " +
+            $"Asset={(shaderAsset != null ? shaderAsset.name : "NULL")}, " +
+            $"Supported={(shaderAsset != null ? shaderAsset.isSupported.ToString() : "N/A")}, " +
+            $"Shader.Find={(shaderFind != null ? shaderFind.name : "NULL")}"
+        );
+    }
 
     [MenuItem("RuneTown/Map Import/Import RSW Test")]
     public static void ImportRswTest()
@@ -84,7 +109,7 @@ public static class RuneTownMapImportTestWindow
     public static void GenerateRsw10ModelPlacementTest()
     {
         // 修改原因：先以 10 個 Cube 代替真正的 RSM 模型，
-        // 驗證 RSW 的 Position / Rotation / Scale 轉換是否符合 Unity 座標系。
+        // 驗證 RSW 的 Position / Rotation / Scale 與 GND 是否可以在同一 Root 內正確對齊。
         var rswPath = EditorUtility.OpenFilePanel(
             "Select Ragnarok RSW",
             "",
@@ -128,23 +153,47 @@ public static class RuneTownMapImportTestWindow
                 return;
             }
 
-            const string parentName =
-                "gl_chyard_RswModelPlacementTest";
+            var mapRoot =
+                GetOrCreateGeneratedMapRoot(
+                    mapData.name
+                );
 
-            // 修改原因：重複執行測試時先清除上一批 Cube，
-            // 避免 Scene 中累積多組測試物件造成誤判。
-            var existingParent =
-                GameObject.Find(parentName);
+            const string modelsName =
+                "Models";
 
-            if (existingParent != null)
+            // 修改原因：重複測試時只清除 Models，
+            // 不影響同一 GeneratedMapRoot 下已生成的 Ground。
+            var existingModels =
+                mapRoot.transform.Find(
+                    modelsName
+                );
+
+            if (existingModels != null)
             {
                 Object.DestroyImmediate(
-                    existingParent
+                    existingModels.gameObject
                 );
             }
 
-            var parentObject =
-                new GameObject(parentName);
+            var modelsObject =
+                new GameObject(
+                    modelsName
+                );
+
+            modelsObject.transform.SetParent(
+                mapRoot.transform,
+                false
+            );
+
+            // 修改原因：RebuildClient 會將整個 RSW Resource Root
+            // 放在 GND InitialSize 對應的位置，
+            // 這是 RO 地圖內部座標規則，不包含任何 Scene 測試用 Offset。
+            modelsObject.transform.localPosition =
+                new Vector3(
+                    mapData.InitialSize.x,
+                    0f,
+                    mapData.InitialSize.y
+                );
 
             int modelCount =
                 Mathf.Min(
@@ -166,31 +215,63 @@ public static class RuneTownMapImportTestWindow
                     $"RSW_Model_{i}_{Path.GetFileNameWithoutExtension(model.FileName)}";
 
                 cube.transform.SetParent(
-                    parentObject.transform
+                    modelsObject.transform,
+                    false
                 );
 
-                // 修改原因：沿用 RebuildClient 原始 RSW Placement 的座標轉換方式。
-                // RO 的位置資料需除以 5，並將 Y 軸反向後才轉成 Unity 座標。
+                // 修改原因：沿用 RebuildClient 原始 RSW Position 轉換方式，
+                // RSW 座標除以 5，並將 Y 軸反向轉成 Unity 座標。
                 cube.transform.localPosition =
                     new Vector3(
                         model.Position.x / 5f,
                         -model.Position.y / 5f,
                         model.Position.z / 5f
+                    )
+                    + new Vector3(
+                        0f,
+                        0.01f,
+                        0f
                     );
 
-                // 修改原因：第一階段直接套用 RSW Rotation，
-                // 用來觀察原始旋轉資料在 Unity 中的方向是否合理。
-                cube.transform.localRotation =
-                    Quaternion.Euler(
-                        model.Rotation
+                // 修改原因：沿用 RebuildClient 真正的 Rotation 組合順序，
+                // 避免直接 Quaternion.Euler(model.Rotation) 造成方向差異。
+                var rz =
+                    Matrix4x4.Rotate(
+                        Quaternion.Euler(
+                            0f,
+                            0f,
+                            -model.Rotation.z
+                        )
                     );
 
-                // 修改原因：第一階段直接套用 RSW Scale，
-                // 驗證模型縮放資料是否可以直接對應 Unity Transform。
+                var rx =
+                    Matrix4x4.Rotate(
+                        Quaternion.Euler(
+                            -model.Rotation.x,
+                            0f,
+                            0f
+                        )
+                    );
+
+                var ry =
+                    Matrix4x4.Rotate(
+                        Quaternion.Euler(
+                            0f,
+                            model.Rotation.y,
+                            0f
+                        )
+                    );
+
+                var finalRotation =
+                    rz * rx * ry;
+
+                cube.transform.rotation =
+                    finalRotation.rotation;
+
                 cube.transform.localScale =
                     model.Scale;
 
-                // 修改原因：Cube 目前只作為 RSW Placement 視覺標記，
+                // 修改原因：Cube 只作為 Placement 視覺標記，
                 // 不需要 Collider 參與物理運算。
                 var collider =
                     cube.GetComponent<Collider>();
@@ -206,20 +287,20 @@ public static class RuneTownMapImportTestWindow
                     $"[RuneTown Map Import] RSW Model {i}: " +
                     $"File={model.FileName}, " +
                     $"RO Pos={model.Position}, " +
-                    $"Unity Pos={cube.transform.localPosition}, " +
+                    $"Local Pos={cube.transform.localPosition}, " +
                     $"Rot={model.Rotation}, " +
                     $"Scale={model.Scale}"
                 );
             }
 
             Selection.activeGameObject =
-                parentObject;
+                mapRoot;
 
             SceneView.FrameLastActiveSceneView();
 
-            // 修改原因：RagnarokWorld 目前只作為本次測試的暫存解析結果，
-            // Cube 建立完成後即可釋放，不需要將 World Asset 儲存進專案。
-            Object.DestroyImmediate(world);
+            Object.DestroyImmediate(
+                world
+            );
 
             Debug.Log(
                 $"[RuneTown Map Import] RSW 10 Model Placement test generated successfully: " +
@@ -231,6 +312,239 @@ public static class RuneTownMapImportTestWindow
             Debug.LogError(
                 $"[RuneTown Map Import] RSW Model Placement test failed:\n{ex}"
             );
+        }
+    }
+
+    [MenuItem("RuneTown/Map Import/Generate RSW 1 Real Model Test")]
+    public static void GenerateRsw1RealModelTest()
+    {
+        // 修改原因：在已驗證 RSW Placement 座標後，
+        // 先只載入第一個真實 RSM 模型，確認 RSM Mesh / Texture / Scale / Rotation 與 GND 對齊。
+        var rswPath = EditorUtility.OpenFilePanel(
+            "Select Ragnarok RSW",
+            "",
+            "rsw"
+        );
+
+        if (string.IsNullOrWhiteSpace(rswPath))
+            return;
+
+        RagnarokModelLoader modelLoader = null;
+        RagnarokWorld world = null;
+
+        try
+        {
+            const string mapAssetPath =
+                "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+            var mapData =
+                AssetDatabase.LoadAssetAtPath<RoMapData>(
+                    mapAssetPath
+                );
+
+            if (mapData == null)
+            {
+                Debug.LogError(
+                    $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+                );
+                return;
+            }
+
+            // 修改原因：沿用目前已驗證成功的 RSW parser，
+            // 從實際 gl_chyard.rsw 取得模型檔名及 Placement 資料。
+            world =
+                RagnarokResourceLoader.LoadResourceFile(
+                    rswPath,
+                    mapData
+                );
+
+            if (world == null ||
+                world.Models == null ||
+                world.Models.Count == 0)
+            {
+                Debug.LogError(
+                    "[RuneTown Map Import] RSW contains no models."
+                );
+                return;
+            }
+
+            var placement =
+                world.Models[0];
+
+            var dataDirectory =
+                RagnarokDirectory.GetRagnarokDataDirectory;
+
+            var modelPath =
+                Path.Combine(
+                    dataDirectory,
+                    "model",
+                    placement.FileName
+                )
+                .Replace("\\", "/");
+
+            if (!File.Exists(modelPath))
+            {
+                Debug.LogError(
+                    $"[RuneTown Map Import] RSM file not found: {modelPath}"
+                );
+                return;
+            }
+
+            var savePath =
+                DirectoryHelper.GetRelativeDirectory(
+                    dataDirectory,
+                    Path.GetDirectoryName(modelPath)
+                );
+
+            // 修改原因：第一階段只驗證單一 RSM，
+            // 直接使用剛移植完成的 RagnarokModelLoader。
+            modelLoader =
+                new RagnarokModelLoader();
+
+            modelLoader.LoadModel(
+                modelPath,
+                savePath
+            );
+
+            var realModel =
+                modelLoader.Compile();
+
+            if (realModel == null)
+            {
+                Debug.LogError(
+                    "[RuneTown Map Import] RSM Compile returned null."
+                );
+                return;
+            }
+
+            var mapRoot =
+                GetOrCreateGeneratedMapRoot(
+                    mapData.name
+                );
+
+            const string testRootName =
+                "RealModelTest";
+
+            // 修改原因：真實模型測試獨立於現有 Models Cube 測試，
+            // 避免破壞目前已驗證的 10 個 Placement 標記。
+            var existingTestRoot =
+                mapRoot.transform.Find(
+                    testRootName
+                );
+
+            if (existingTestRoot != null)
+            {
+                Object.DestroyImmediate(
+                    existingTestRoot.gameObject
+                );
+            }
+
+            var testRoot =
+                new GameObject(
+                    testRootName
+                );
+
+            testRoot.transform.SetParent(
+                mapRoot.transform,
+                false
+            );
+
+            // 修改原因：沿用 RebuildClient 的 RSW Resource Root InitialSize Offset。
+            testRoot.transform.localPosition =
+                new Vector3(
+                    mapData.InitialSize.x,
+                    0f,
+                    mapData.InitialSize.y
+                );
+
+            realModel.name =
+                $"RSM_RealModel_0_{Path.GetFileNameWithoutExtension(placement.FileName)}";
+
+            realModel.transform.SetParent(
+                testRoot.transform,
+                false
+            );
+
+            // 修改原因：沿用已由 Cube Placement Test 驗證的 RSW Position 轉換。
+            realModel.transform.localPosition =
+                new Vector3(
+                    placement.Position.x / 5f,
+                    -placement.Position.y / 5f,
+                    placement.Position.z / 5f
+                )
+                + new Vector3(
+                    0f,
+                    0.01f,
+                    0f
+                );
+
+            // 修改原因：沿用 RebuildClient 的 RSW Rotation 組合順序。
+            var rz =
+                Matrix4x4.Rotate(
+                    Quaternion.Euler(
+                        0f,
+                        0f,
+                        -placement.Rotation.z
+                    )
+                );
+
+            var rx =
+                Matrix4x4.Rotate(
+                    Quaternion.Euler(
+                        -placement.Rotation.x,
+                        0f,
+                        0f
+                    )
+                );
+
+            var ry =
+                Matrix4x4.Rotate(
+                    Quaternion.Euler(
+                        0f,
+                        placement.Rotation.y,
+                        0f
+                    )
+                );
+
+            var finalRotation =
+                rz * rx * ry;
+
+            realModel.transform.localRotation =
+                finalRotation.rotation;
+
+            realModel.transform.localScale =
+                placement.Scale;
+
+            Selection.activeGameObject =
+                realModel;
+
+            SceneView.FrameLastActiveSceneView();
+
+            Debug.Log(
+                $"[RuneTown Map Import] RSW 1 Real Model test success: " +
+                $"File={placement.FileName}, " +
+                $"Path={modelPath}, " +
+                $"Local Pos={realModel.transform.localPosition}, " +
+                $"Rot={placement.Rotation}, " +
+                $"Scale={placement.Scale}"
+            );
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] RSW 1 Real Model test failed:\n{ex}"
+            );
+        }
+        finally
+        {
+            modelLoader?.Dispose();
+
+            if (world != null)
+            {
+                Object.DestroyImmediate(
+                    world
+                );
+            }
         }
     }
 
@@ -632,17 +946,47 @@ public static class RuneTownMapImportTestWindow
         int chunkCountY =
             mapData.Height / chunkSize;
 
-        // 修改原因：將完整 GND 地形集中在單一父物件，
-        // 方便整組移動、檢查以及後續刪除測試結果。
+        var mapRoot =
+            GetOrCreateGeneratedMapRoot(
+                mapData.name
+            );
+
+        const string groundName =
+            "Ground";
+
+        // 修改原因：重複生成完整 GND 時只清除既有 Ground，
+        // 保留同一 GeneratedMapRoot 下的 Models 等其他測試內容。
+        var existingGround =
+            mapRoot.transform.Find(
+                groundName
+            );
+
+        if (existingGround != null)
+        {
+            Object.DestroyImmediate(
+                existingGround.gameObject
+            );
+        }
+
+        // 修改原因：Ground 掛在 GeneratedMapRoot 下並保持 localPosition 為零，
+        // 之後只需移動 Root 即可整張地圖一起移動。
         var parentObject =
-            new GameObject("gl_chyard_FullGndTerrain");
+            new GameObject(
+                groundName
+            );
+
+        parentObject.transform.SetParent(
+            mapRoot.transform,
+            false
+        );
 
         var material =
             new Material(
                 Shader.Find("Universal Render Pipeline/Lit")
             );
 
-        material.name = "gl_chyard_FullGndMaterial";
+        material.name =
+            "gl_chyard_FullGndMaterial";
 
         int generatedChunkCount = 0;
 
@@ -674,7 +1018,7 @@ public static class RuneTownMapImportTestWindow
                 );
 
                 // 修改原因：沿用原 RebuildClient 的 Chunk 座標排列方式，
-                // 讓 Chunk 世界位置與 GND Cell 座標維持一致。
+                // 讓 Chunk 在 Ground 內維持原始 GND Cell 座標。
                 chunkObject.transform.localPosition =
                     new Vector3(
                         boundsX * tileSize,
@@ -698,7 +1042,9 @@ public static class RuneTownMapImportTestWindow
             }
         }
 
-        Selection.activeGameObject = parentObject;
+        Selection.activeGameObject =
+            mapRoot;
+
         SceneView.FrameLastActiveSceneView();
 
         Debug.Log(
@@ -707,6 +1053,7 @@ public static class RuneTownMapImportTestWindow
             $"Chunks={chunkCountX}x{chunkCountY}, Total={generatedChunkCount}"
         );
     }
+
 
     [MenuItem("RuneTown/Map Import/Generate 2x2 Chunks Test")]
     public static void Generate2x2ChunksTest()
@@ -802,6 +1149,31 @@ public static class RuneTownMapImportTestWindow
             "start=(64,64), chunkSize=16, count=4"
         );
     }
+
+    private static GameObject GetOrCreateGeneratedMapRoot(string mapName)
+    {
+        // 修改原因：統一管理同一張 RO 地圖產生的 Ground / Models / Lights / Effects 等內容，
+        // 讓整張地圖可以透過單一 Root 移動，而不破壞內部 GND / RSW 相對座標。
+        var rootName =
+            $"{mapName}_GeneratedMapRoot";
+
+        var existingRoot =
+            GameObject.Find(rootName);
+
+        if (existingRoot != null)
+            return existingRoot;
+
+        var root =
+            new GameObject(rootName);
+
+        // 修改原因：Root 的世界位置由開發者在 Scene 中自行調整，
+        // 不將目前測試用的 350 寫死進 importer。
+        root.transform.position =
+            Vector3.zero;
+
+        return root;
+    }
+
 
 
 }

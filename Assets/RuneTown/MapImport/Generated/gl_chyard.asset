@@ -88,10 +88,10 @@ MonoBehaviour:
   WalkData: {fileID: 0}
   WalkCellData: {fileID: 0}
   Water:
-    Level: 0
+    Level: 20
     Type: 0
-    WaveHeight: 0
-    WaveSpeed: 0
-    WavePitch: 0
-    AnimSpeed: 0
+    WaveHeight: 1
+    WaveSpeed: 2
+    WavePitch: 50
+    AnimSpeed: 3
     Images: []
