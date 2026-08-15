@@ -84,30 +84,56 @@ namespace Assets.Scripts.MapEditor.Editor
                             c.Front = cell.Front;
 
                             var newX = x * splitCount + x2;
-                            var newY = y * splitCount + (splitCount-y2-1);
+                            var newY = y * splitCount + (splitCount - y2 - 1);
 
                             cells[newX + newY * map.Width] = c;
-                            walkCells[newX + newY * map.Width] = new RoWalkCell() { Heights = c.Heights, Type = c.Type };
+                            walkCells[newX + newY * map.Width] =
+                                new RoWalkCell()
+                                {
+                                    Heights = c.Heights,
+                                    Type = c.Type
+                                };
                         }
                     }
                 }
             }
 
+            // 修改原因：將 GAT Cell binary 統一輸出到 RuneTown 的 MapImport Generated 目錄，
+            // 避免沿用 RebuildClient 原本的 Assets/Maps/altitude/mapinfo 路徑。
+            const string mapInfoDirectory =
+                "Assets/RuneTown/MapImport/Generated/mapinfo";
 
-            if (!Directory.Exists("Assets/Maps/altitude/mapinfo"))
-                Directory.CreateDirectory("Assets/Maps/altitude/mapinfo");
+            if (!Directory.Exists(mapInfoDirectory))
+                Directory.CreateDirectory(mapInfoDirectory);
 
-            map.SaveCellDataToFile(cells, Path.Combine("Assets/Maps/altitude/mapinfo", name + "_walk.bytes").Replace("\\", "/"));
+            map.SaveCellDataToFile(
+                cells,
+                Path.Combine(
+                    mapInfoDirectory,
+                    name + "_walk.bytes"
+                ).Replace("\\", "/")
+            );
 
-            if (!Directory.Exists("Assets/Maps/altitude/walkdata"))
-                Directory.CreateDirectory("Assets/Maps/altitude/walkdata");
+            // 修改原因：將 RagnarokWalkData Asset 統一放在 RuneTown MapImport Generated 目錄，
+            // 避免建立 RebuildClient 原本的 Assets/Maps/altitude/walkdata 資料夾。
+            const string walkDataDirectory =
+                "Assets/RuneTown/MapImport/Generated/walkdata";
+
+            if (!Directory.Exists(walkDataDirectory))
+                Directory.CreateDirectory(walkDataDirectory);
 
             var walkData = ScriptableObject.CreateInstance<RagnarokWalkData>();
             walkData.Width = map.Width;
             walkData.Height = map.Height;
             walkData.Cells = walkCells;
 
-            AssetDatabase.CreateAsset(walkData, Path.Combine("Assets/Maps/altitude/walkdata", name + "_walkdata.asset").Replace("\\", "/"));
+            AssetDatabase.CreateAsset(
+                walkData,
+                Path.Combine(
+                    walkDataDirectory,
+                    name + "_walkdata.asset"
+                ).Replace("\\", "/")
+            );
 
             map.WalkCellData = walkData;
 
@@ -142,11 +168,10 @@ namespace Assets.Scripts.MapEditor.Editor
             map.IsWalkTable = true;
             map.Textures = GetTextures();
 
-            var realWidth = (int)Math.Ceiling((map.Width) / 16f) * 16;
-            var realHeight = (int)Math.Ceiling((map.Height) / 16f) * 16;
+            var realWidth = (int)Math.Ceiling(map.Width / 16f) * 16;
+            var realHeight = (int)Math.Ceiling(map.Height / 16f) * 16;
 
             var cells = new Cell[realWidth * realHeight];
-
             var walkCells = new RoWalkCell[realWidth * realHeight];
 
             for (var y = 0; y < realHeight; y++)
@@ -158,13 +183,32 @@ namespace Assets.Scripts.MapEditor.Editor
                         var c2 = new Cell();
                         c2.Type = CellType.None;
                         c2.Heights = Vector4.zero;
-                        c2.Top = new Tile() { Enabled = true, Texture = "red", UVs = VectorHelper.DefaultQuadUVs(), Color = Color.white, IsUnlit = false };
-                        c2.Right = new Tile() { Enabled = false, UVs = VectorHelper.DefaultQuadUVs() };
-                        c2.Front = new Tile() { Enabled = false, UVs = VectorHelper.DefaultQuadUVs() };
+
+                        c2.Top = new Tile()
+                        {
+                            Enabled = true,
+                            Texture = "red",
+                            UVs = VectorHelper.DefaultQuadUVs(),
+                            Color = Color.white,
+                            IsUnlit = false
+                        };
+
+                        c2.Right = new Tile()
+                        {
+                            Enabled = false,
+                            UVs = VectorHelper.DefaultQuadUVs()
+                        };
+
+                        c2.Front = new Tile()
+                        {
+                            Enabled = false,
+                            UVs = VectorHelper.DefaultQuadUVs()
+                        };
+
                         cells[x + y * realWidth] = c2;
                         continue;
                     }
-                    
+
                     var v1 = br.ReadSingle();
                     var v2 = br.ReadSingle();
                     var v3 = br.ReadSingle();
@@ -172,10 +216,10 @@ namespace Assets.Scripts.MapEditor.Editor
 
                     var c = new Cell();
                     c.Heights = new Vector4(v3, v4, v1, v2) * -1;
+
                     var type = br.ReadInt32();
                     var color = "";
 
-                    
                     var avg = (v1 + v2 + v3 + v4) / 4f;
                     var isInWater = avg > -waterHeight * 5f;
 
@@ -188,80 +232,157 @@ namespace Assets.Scripts.MapEditor.Editor
                             c.Type = CellType.Walkable | CellType.Snipable;
                             color = "green";
                             break;
+
                         case 1:
                             c.Type = CellType.None;
                             color = "red";
                             break;
+
                         case 2:
                             c.Type = CellType.Walkable | CellType.Snipable;
                             color = "orange";
                             break;
+
                         case 3:
-                            c.Type = CellType.Walkable | CellType.Snipable | CellType.Water;
+                            c.Type =
+                                CellType.Walkable |
+                                CellType.Snipable |
+                                CellType.Water;
+
                             color = "blue";
                             break;
+
                         case 4:
                             c.Type = CellType.Walkable | CellType.Snipable;
                             color = "purple";
                             break;
+
                         case 5:
                             c.Type = CellType.Snipable;
                             color = "yellow";
                             break;
+
                         case 6:
                             c.Type = CellType.Walkable | CellType.Snipable;
                             color = "purple";
                             break;
+
                         default:
-                            throw new Exception("Unknown cell type for Map " + map.name + " (X: " + x + " / Y: " + y + ") Value " + type);
+                            throw new Exception(
+                                "Unknown cell type for Map " +
+                                map.name +
+                                " (X: " +
+                                x +
+                                " / Y: " +
+                                y +
+                                ") Value " +
+                                type
+                            );
                     }
 
                     if (isInWater)
                     {
                         c.Type |= CellType.Water;
+
                         if ((c.Type & CellType.Walkable) > 0)
                             color = "blue";
                         else
                             color = "orange";
+
                         // Debug.Log($"Water cell {x},{y} type {c.Type}");
                     }
 
-                    c.Top = new Tile() { Enabled = true, Texture = color, UVs = VectorHelper.DefaultQuadUVs(), Color = Color.white, IsUnlit = false };
-                    c.Right = new Tile() { Enabled = false, UVs = VectorHelper.DefaultQuadUVs() };
-                    c.Front = new Tile() { Enabled = false, UVs = VectorHelper.DefaultQuadUVs() };
+                    c.Top = new Tile()
+                    {
+                        Enabled = true,
+                        Texture = color,
+                        UVs = VectorHelper.DefaultQuadUVs(),
+                        Color = Color.white,
+                        IsUnlit = false
+                    };
+
+                    c.Right = new Tile()
+                    {
+                        Enabled = false,
+                        UVs = VectorHelper.DefaultQuadUVs()
+                    };
+
+                    c.Front = new Tile()
+                    {
+                        Enabled = false,
+                        UVs = VectorHelper.DefaultQuadUVs()
+                    };
 
                     cells[x + y * realWidth] = c;
-                    walkCells[x + y * realWidth] = new RoWalkCell() { Heights = c.Heights, Type = c.Type };
+
+                    walkCells[x + y * realWidth] =
+                        new RoWalkCell()
+                        {
+                            Heights = c.Heights,
+                            Type = c.Type
+                        };
                 }
             }
 
             map.Width = realWidth;
             map.Height = realHeight;
 
-            if (!Directory.Exists("Assets/Maps/altitude/mapinfo"))
-                Directory.CreateDirectory("Assets/Maps/altitude/mapinfo");
+            // 修改原因：將 GAT Cell binary 統一輸出到 RuneTown 的 MapImport Generated 目錄，
+            // 避免沿用 RebuildClient 原本的 Assets/Maps/altitude/mapinfo 路徑。
+            const string mapInfoDirectory =
+                "Assets/RuneTown/MapImport/Generated/mapinfo";
 
-            map.SaveCellDataToFile(cells, Path.Combine("Assets/Maps/altitude/mapinfo", basename + "_walk.bytes").Replace("\\", "/"));
+            if (!Directory.Exists(mapInfoDirectory))
+                Directory.CreateDirectory(mapInfoDirectory);
 
-            if (!Directory.Exists("Assets/Maps/altitude/walkdata"))
-                Directory.CreateDirectory("Assets/Maps/altitude/walkdata");
+            map.SaveCellDataToFile(
+                cells,
+                Path.Combine(
+                    mapInfoDirectory,
+                    basename + "_walk.bytes"
+                ).Replace("\\", "/")
+            );
+
+            // 修改原因：將 RagnarokWalkData Asset 統一放在 RuneTown MapImport Generated 目錄，
+            // 避免建立 RebuildClient 原本的 Assets/Maps/altitude/walkdata 資料夾。
+            const string walkDataDirectory =
+                "Assets/RuneTown/MapImport/Generated/walkdata";
+
+            if (!Directory.Exists(walkDataDirectory))
+                Directory.CreateDirectory(walkDataDirectory);
 
             var walkData = ScriptableObject.CreateInstance<RagnarokWalkData>();
+
             walkData.Width = realWidth;
             walkData.Height = realHeight;
             walkData.Cells = walkCells;
 
-            AssetDatabase.CreateAsset(walkData, Path.Combine("Assets/Maps/altitude/walkdata", basename + "_walkdata.asset").Replace("\\", "/"));
+            AssetDatabase.CreateAsset(
+                walkData,
+                Path.Combine(
+                    walkDataDirectory,
+                    basename + "_walkdata.asset"
+                ).Replace("\\", "/")
+            );
 
             map.WalkCellData = walkData;
 
             Debug.Log($"Done loading data, read {fs.Position}/{fs.Length}");
 
             fs.Close();
-            
-            var exportPath = "Assets/Maps/exportdata/" + basename + ".walk";
-            walkData.ExportToFile(exportPath, map.InitialSize);
-            
+
+            // 修改原因：將匯出的 .walk 檔統一放進 RuneTown MapImport Generated 目錄，
+            // 避免沿用 RebuildClient 原本的 Assets/Maps/exportdata 路徑。
+            var exportPath =
+                "Assets/RuneTown/MapImport/Generated/exportdata/" +
+                basename +
+                ".walk";
+
+            walkData.ExportToFile(
+                exportPath,
+                map.InitialSize
+            );
+
             return map;
         }
     }

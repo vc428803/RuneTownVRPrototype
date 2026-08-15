@@ -6,6 +6,177 @@ using UnityEngine;
 
 public static class RuneTownMapImportTestWindow
 {
+
+    [MenuItem("RuneTown/Map Import/Generate GAT Walk Visual Test")]
+    public static void GenerateGatWalkVisualTest()
+    {
+        // 修改原因：將已匯入的 GAT Walk Data 轉成單一 Texture2D，
+        // 以 1 Pixel = 1 GAT Cell 的方式驗證 Walkable、Water、
+        // Snipable 與不可行走區域，避免建立數萬個測試 GameObject。
+        const string walkDataPath =
+            "Assets/RuneTown/MapImport/Generated/walkdata/gl_chyard_walkdata.asset";
+
+        const string outputDirectory =
+            "Assets/RuneTown/MapImport/Generated/visual";
+
+        const string outputPath =
+            outputDirectory + "/gl_chyard_walk_visual.png";
+
+        var walkData =
+            AssetDatabase.LoadAssetAtPath<RagnarokWalkData>(
+                walkDataPath
+            );
+
+        if (walkData == null)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] Walk data not found: {walkDataPath}"
+            );
+            return;
+        }
+
+        if (!Directory.Exists(outputDirectory))
+            Directory.CreateDirectory(outputDirectory);
+
+        // 修改原因：直接按照 GAT Cell 數量建立同尺寸 Texture，
+        // 讓每個 Pixel 精確對應一個 Walk Cell。
+        var texture =
+            new Texture2D(
+                walkData.Width,
+                walkData.Height,
+                TextureFormat.RGBA32,
+                false
+            );
+
+        texture.name = "gl_chyard_walk_visual";
+        texture.filterMode = FilterMode.Point;
+
+        var pixels =
+            new Color32[
+                walkData.Width *
+                walkData.Height
+            ];
+
+        int walkableCount = 0;
+        int waterCount = 0;
+        int snipableOnlyCount = 0;
+        int blockedCount = 0;
+
+        for (int y = 0; y < walkData.Height; y++)
+        {
+            for (int x = 0; x < walkData.Width; x++)
+            {
+                var cell =
+                    walkData.Cell(x, y);
+
+                Color32 color;
+
+                // 修改原因：Water Cell 可能同時具有 Walkable Flag，
+                // 因此必須優先判斷 Water，避免被一般 Walkable 顏色蓋掉。
+                if ((cell.Type & CellType.Water) != 0)
+                {
+                    color = new Color32(
+                        0,
+                        100,
+                        255,
+                        255
+                    );
+
+                    waterCount++;
+                }
+                else if ((cell.Type & CellType.Walkable) != 0)
+                {
+                    color = new Color32(
+                        0,
+                        220,
+                        0,
+                        255
+                    );
+
+                    walkableCount++;
+                }
+                else if ((cell.Type & CellType.Snipable) != 0)
+                {
+                    color = new Color32(
+                        255,
+                        220,
+                        0,
+                        255
+                    );
+
+                    snipableOnlyCount++;
+                }
+                else
+                {
+                    color = new Color32(
+                        220,
+                        0,
+                        0,
+                        255
+                    );
+
+                    blockedCount++;
+                }
+
+                pixels[
+                    x + y * walkData.Width
+                ] = color;
+            }
+        }
+
+        texture.SetPixels32(pixels);
+        texture.Apply();
+
+        // 修改原因：將測試結果輸出成 PNG Asset，
+        // 方便直接在 Unity Project 視窗查看並與 RebuildClient 結果比對。
+        File.WriteAllBytes(
+            outputPath,
+            texture.EncodeToPNG()
+        );
+
+        Object.DestroyImmediate(texture);
+
+        AssetDatabase.Refresh();
+
+        // 修改原因：Walk Map 代表離散 Cell 資料，
+        // 使用 Point Filter 可以避免 Unity 插值造成格子邊界模糊。
+        var textureImporter =
+            AssetImporter.GetAtPath(outputPath)
+            as TextureImporter;
+
+        if (textureImporter != null)
+        {
+            textureImporter.filterMode =
+                FilterMode.Point;
+
+            textureImporter.mipmapEnabled =
+                false;
+
+            textureImporter.textureCompression =
+                TextureImporterCompression.Uncompressed;
+
+            textureImporter.SaveAndReimport();
+        }
+
+        var generatedTexture =
+            AssetDatabase.LoadAssetAtPath<Texture2D>(
+                outputPath
+            );
+
+        Selection.activeObject =
+            generatedTexture;
+
+        Debug.Log(
+            $"[RuneTown Map Import] GAT Walk Visual generated: " +
+            $"Size={walkData.Width}x{walkData.Height}, " +
+            $"Walkable={walkableCount}, " +
+            $"Water={waterCount}, " +
+            $"SnipableOnly={snipableOnlyCount}, " +
+            $"Blocked={blockedCount}, " +
+            $"Output={outputPath}"
+        );
+    }
+
     [MenuItem("RuneTown/Map Import/Import GND Test")]
     public static void ImportGndTest()
     {
@@ -95,6 +266,55 @@ public static class RuneTownMapImportTestWindow
         {
             Debug.LogError(
                 $"[RuneTown Map Import] GND import failed:\n{ex}"
+            );
+        }
+    }
+
+    [MenuItem("RuneTown/Map Import/Import GAT Test")]
+    public static void ImportGatTest()
+    {
+        // 修改原因：建立 RuneTown 第一版 Ragnarok GAT 匯入測試入口，
+        // 先驗證 .gat 可以成功解析成 RoMapData 與 RagnarokWalkData。
+        var gatPath = EditorUtility.OpenFilePanel(
+            "Select Ragnarok GAT",
+            "",
+            "gat"
+        );
+
+        if (string.IsNullOrWhiteSpace(gatPath))
+            return;
+
+        try
+        {
+            // 修改原因：目前 GAT 測試階段尚未接入 RSW 水面資料，
+            // 先以 0 作為 waterHeight，優先驗證 GAT Binary 解析與 Walk Data 輸出流程。
+            const float waterHeight = 0f;
+
+            var importer =
+                new RagnarokWalkableDataImporter();
+
+            var walkMapData =
+                importer.LoadWalkData(
+                    gatPath,
+                    waterHeight
+                );
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            // 修改原因：輸出解析結果，方便確認 GAT 尺寸、
+            // WalkCellData 是否成功建立，以及後續測試時快速判斷結果。
+            Debug.Log(
+                $"[RuneTown Map Import] GAT import success: " +
+                $"{Path.GetFileNameWithoutExtension(gatPath)}, " +
+                $"Size={walkMapData.Width}x{walkMapData.Height}, " +
+                $"WalkData={(walkMapData.WalkCellData != null ? "Created" : "Missing")}"
+            );
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] GAT import failed:\n{ex}"
             );
         }
     }
