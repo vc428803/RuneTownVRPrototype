@@ -19,6 +19,19 @@ public static class VectorHelper
         return (value - from1) / (to1 - from1) * (to2 - from2) + from2;
     }
 
+    // 修改原因：RagnarokWalkableDataImporter 建立 GAT Walk Cell 的 Tile 時
+    // 需要預設四邊形 UV，因此補上 RebuildClient 原本使用的基本 UV 排列。
+    public static Vector2[] DefaultQuadUVs()
+    {
+        return new[]
+        {
+        new Vector2(0f, 1f),
+        new Vector2(1f, 1f),
+        new Vector2(0f, 0f),
+        new Vector2(1f, 0f)
+    };
+    }
+
     // 修改原因：RoMapSharedMeshData 建立地圖 Mesh 時需要計算四邊形平均法線，
     // 因此保留 RebuildClient 原本的四邊形法線計算邏輯。
     public static Vector3 CalcQuadNormal(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4)
