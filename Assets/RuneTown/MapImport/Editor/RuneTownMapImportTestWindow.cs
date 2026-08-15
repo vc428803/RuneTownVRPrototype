@@ -7,6 +7,233 @@ using UnityEngine;
 public static class RuneTownMapImportTestWindow
 {
 
+    [MenuItem("RuneTown/Map Import/Import RSW Test")]
+    public static void ImportRswTest()
+    {
+        // 修改原因：建立 RuneTown 第一版 Ragnarok RSW 匯入測試入口，
+        // 先驗證 .rsw 可以成功解析成 RagnarokWorld，
+        // 暫時不建立模型、不處理 Scene Placement。
+        var rswPath = EditorUtility.OpenFilePanel(
+            "Select Ragnarok RSW",
+            "",
+            "rsw"
+        );
+
+        if (string.IsNullOrWhiteSpace(rswPath))
+            return;
+
+        try
+        {
+            // 修改原因：RagnarokResourceLoader 解析 Water 時會同步寫入 RoMapData.Water，
+            // 因此先載入目前已完成的 gl_chyard GND MapData 作為 RSW 解析基礎。
+            const string mapAssetPath =
+                "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+            var mapData =
+                AssetDatabase.LoadAssetAtPath<RoMapData>(
+                    mapAssetPath
+                );
+
+            if (mapData == null)
+            {
+                Debug.LogError(
+                    $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+                );
+                return;
+            }
+
+            var world =
+                RagnarokResourceLoader.LoadResourceFile(
+                    rswPath,
+                    mapData
+                );
+
+            if (world == null)
+            {
+                Debug.LogError(
+                    "[RuneTown Map Import] RSW import failed: RagnarokWorld is null."
+                );
+                return;
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            // 修改原因：第一階段只輸出 RSW 解析結果，
+            // 用來確認 Models / Lights / Sounds / Effects / Water 是否成功讀取。
+            Debug.Log(
+                $"[RuneTown Map Import] RSW import success: " +
+                $"{world.MapName}, " +
+                $"Version={world.Version}, " +
+                $"Models={world.Models.Count}, " +
+                $"Lights={world.Lights.Count}, " +
+                $"Sounds={world.Sounds.Count}, " +
+                $"Effects={world.Effects.Count}, " +
+                $"Water={(world.Water != null ? "Created" : "Missing")}"
+            );
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] RSW import failed:\n{ex}"
+            );
+        }
+    }
+
+    [MenuItem("RuneTown/Map Import/Generate RSW 10 Model Placement Test")]
+    public static void GenerateRsw10ModelPlacementTest()
+    {
+        // 修改原因：先以 10 個 Cube 代替真正的 RSM 模型，
+        // 驗證 RSW 的 Position / Rotation / Scale 轉換是否符合 Unity 座標系。
+        var rswPath = EditorUtility.OpenFilePanel(
+            "Select Ragnarok RSW",
+            "",
+            "rsw"
+        );
+
+        if (string.IsNullOrWhiteSpace(rswPath))
+            return;
+
+        try
+        {
+            const string mapAssetPath =
+                "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+            var mapData =
+                AssetDatabase.LoadAssetAtPath<RoMapData>(
+                    mapAssetPath
+                );
+
+            if (mapData == null)
+            {
+                Debug.LogError(
+                    $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+                );
+                return;
+            }
+
+            // 修改原因：沿用已驗證成功的 RagnarokResourceLoader，
+            // 直接取得 RSW 內實際的 Model Placement 資料。
+            var world =
+                RagnarokResourceLoader.LoadResourceFile(
+                    rswPath,
+                    mapData
+                );
+
+            if (world == null)
+            {
+                Debug.LogError(
+                    "[RuneTown Map Import] RSW Model Placement test failed: RagnarokWorld is null."
+                );
+                return;
+            }
+
+            const string parentName =
+                "gl_chyard_RswModelPlacementTest";
+
+            // 修改原因：重複執行測試時先清除上一批 Cube，
+            // 避免 Scene 中累積多組測試物件造成誤判。
+            var existingParent =
+                GameObject.Find(parentName);
+
+            if (existingParent != null)
+            {
+                Object.DestroyImmediate(
+                    existingParent
+                );
+            }
+
+            var parentObject =
+                new GameObject(parentName);
+
+            int modelCount =
+                Mathf.Min(
+                    10,
+                    world.Models.Count
+                );
+
+            for (int i = 0; i < modelCount; i++)
+            {
+                var model =
+                    world.Models[i];
+
+                var cube =
+                    GameObject.CreatePrimitive(
+                        PrimitiveType.Cube
+                    );
+
+                cube.name =
+                    $"RSW_Model_{i}_{Path.GetFileNameWithoutExtension(model.FileName)}";
+
+                cube.transform.SetParent(
+                    parentObject.transform
+                );
+
+                // 修改原因：沿用 RebuildClient 原始 RSW Placement 的座標轉換方式。
+                // RO 的位置資料需除以 5，並將 Y 軸反向後才轉成 Unity 座標。
+                cube.transform.localPosition =
+                    new Vector3(
+                        model.Position.x / 5f,
+                        -model.Position.y / 5f,
+                        model.Position.z / 5f
+                    );
+
+                // 修改原因：第一階段直接套用 RSW Rotation，
+                // 用來觀察原始旋轉資料在 Unity 中的方向是否合理。
+                cube.transform.localRotation =
+                    Quaternion.Euler(
+                        model.Rotation
+                    );
+
+                // 修改原因：第一階段直接套用 RSW Scale，
+                // 驗證模型縮放資料是否可以直接對應 Unity Transform。
+                cube.transform.localScale =
+                    model.Scale;
+
+                // 修改原因：Cube 目前只作為 RSW Placement 視覺標記，
+                // 不需要 Collider 參與物理運算。
+                var collider =
+                    cube.GetComponent<Collider>();
+
+                if (collider != null)
+                {
+                    Object.DestroyImmediate(
+                        collider
+                    );
+                }
+
+                Debug.Log(
+                    $"[RuneTown Map Import] RSW Model {i}: " +
+                    $"File={model.FileName}, " +
+                    $"RO Pos={model.Position}, " +
+                    $"Unity Pos={cube.transform.localPosition}, " +
+                    $"Rot={model.Rotation}, " +
+                    $"Scale={model.Scale}"
+                );
+            }
+
+            Selection.activeGameObject =
+                parentObject;
+
+            SceneView.FrameLastActiveSceneView();
+
+            // 修改原因：RagnarokWorld 目前只作為本次測試的暫存解析結果，
+            // Cube 建立完成後即可釋放，不需要將 World Asset 儲存進專案。
+            Object.DestroyImmediate(world);
+
+            Debug.Log(
+                $"[RuneTown Map Import] RSW 10 Model Placement test generated successfully: " +
+                $"Count={modelCount}"
+            );
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] RSW Model Placement test failed:\n{ex}"
+            );
+        }
+    }
+
     [MenuItem("RuneTown/Map Import/Generate GAT Walk Visual Test")]
     public static void GenerateGatWalkVisualTest()
     {
