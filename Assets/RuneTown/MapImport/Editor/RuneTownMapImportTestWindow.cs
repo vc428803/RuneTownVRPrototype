@@ -9,6 +9,237 @@ using System.Collections.Generic;
 
 public static class RuneTownMapImportTestWindow
 {
+    // 修改原因：驗證 RSW Light 資料能依照 RebuildClient 規則
+    // 生成到目前的 RuneTown 地圖 Scene。
+    [MenuItem("RuneTown/Map Import/Generate RSW Lights Test")]
+    public static void GenerateRswLightsTest()
+    {
+        var rswPath = EditorUtility.OpenFilePanel(
+            "Select Ragnarok RSW",
+            "",
+            "rsw"
+        );
+
+        if (string.IsNullOrWhiteSpace(rswPath))
+            return;
+
+        RagnarokWorld world = null;
+
+        try
+        {
+            const string mapAssetPath =
+                "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+            var mapData =
+                AssetDatabase.LoadAssetAtPath<RoMapData>(
+                    mapAssetPath
+                );
+
+            if (mapData == null)
+            {
+                Debug.LogError(
+                    $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+                );
+                return;
+            }
+
+            // 修改原因：沿用目前已驗證成功的 RSW parser 取得 Light 資料。
+            world =
+                RagnarokResourceLoader.LoadResourceFile(
+                    rswPath,
+                    mapData
+                );
+
+            if (world == null ||
+                world.Lights == null ||
+                world.Lights.Count == 0)
+            {
+                Debug.LogError(
+                    "[RuneTown Map Import] RSW contains no lights."
+                );
+                return;
+            }
+
+            var mapRoot =
+                GetOrCreateGeneratedMapRoot(
+                    mapData.name
+                );
+
+            const string lightsRootName =
+                "Lights";
+
+            // 修改原因：重新測試 Lights 時只清除舊 Lights，
+            // 不影響已完成的 Ground 與 Models。
+            var existingLightsRoot =
+                mapRoot.transform.Find(
+                    lightsRootName
+                );
+
+            if (existingLightsRoot != null)
+            {
+                UnityEngine.Object.DestroyImmediate(
+                    existingLightsRoot.gameObject
+                );
+            }
+
+            var lightsRoot =
+                new GameObject(
+                    lightsRootName
+                );
+
+            lightsRoot.transform.SetParent(
+                mapRoot.transform,
+                false
+            );
+
+            // 修改原因：與 Models 一樣沿用 RebuildClient 的 Resource Root Offset。
+            lightsRoot.transform.localPosition =
+                new Vector3(
+                    mapData.InitialSize.x,
+                    0f,
+                    mapData.InitialSize.y
+                );
+
+            int generatedCount = 0;
+
+            foreach (var sourceLight in world.Lights)
+            {
+                // 修改原因：沿用 RebuildClient 的 RSW Light Position 轉換。
+                var position =
+                    new Vector3(
+                        sourceLight.Position.x / 5f,
+                        -sourceLight.Position.y / 5f,
+                        sourceLight.Position.z / 5f
+                    );
+
+                var lightObject =
+                    new GameObject(
+                        sourceLight.Name
+                    );
+
+                lightObject.transform.SetParent(
+                    lightsRoot.transform,
+                    false
+                );
+
+                lightObject.transform.localPosition =
+                    position;
+
+                lightObject.isStatic = true;
+
+                // 修改原因：RebuildClient 將 RSW Range 除以 5 後
+                // 作為 Unity Point Light 的 Range。
+                var range =
+                    sourceLight.Range / 5f;
+
+                // 修改原因：沿用 RebuildClient 實際使用的 Light Intensity 公式。
+                var intensity =
+                    Mathf.Max(
+                        3f,
+                        (range + 1f) / 3f
+                    );
+
+                var unityLight =
+                    lightObject.AddComponent<Light>();
+
+                unityLight.type =
+                    LightType.Point;
+
+                unityLight.range =
+                    range;
+
+                unityLight.color =
+                    sourceLight.Color;
+
+                unityLight.intensity =
+                    intensity;
+
+                unityLight.lightmapBakeType =
+                    LightmapBakeType.Baked;
+
+                unityLight.shadows =
+                    LightShadows.Soft;
+
+                // 修改原因：RebuildClient 的 RSW Point Light 使用 cullingMask = 0，
+                // 在 RuneTown 會變成不照任何 Layer；先改為照亮所有 Layer 驗證實際效果。
+                unityLight.cullingMask =
+                    ~0;
+
+                // 修改原因：RebuildClient 每盞主燈都會建立一盞
+                // Range 為一半的 Sub Light。
+                var subLightObject =
+                    new GameObject(
+                        "Sub Light"
+                    );
+
+                subLightObject.transform.SetParent(
+                    lightObject.transform,
+                    false
+                );
+
+                subLightObject.transform.localPosition =
+                    Vector3.zero;
+
+                subLightObject.isStatic =
+                    true;
+
+                var subLight =
+                    subLightObject.AddComponent<Light>();
+
+                subLight.type =
+                    LightType.Point;
+
+                subLight.range =
+                    range / 2f;
+
+                subLight.color =
+                    sourceLight.Color;
+
+                subLight.intensity =
+                    intensity;
+
+                subLight.lightmapBakeType =
+                    LightmapBakeType.Baked;
+
+                subLight.shadows =
+                    LightShadows.Soft;
+
+                // 修改原因：Sub Light 與主 Light 使用相同 Layer 設定。
+                subLight.cullingMask =
+                    ~0;
+
+                generatedCount++;
+            }
+
+            Selection.activeGameObject =
+                lightsRoot;
+
+            EditorUtility.SetDirty(
+                mapRoot
+            );
+
+            Debug.Log(
+                $"[RuneTown Map Import] RSW Lights generated successfully: " +
+                $"{generatedCount}/{world.Lights.Count}"
+            );
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] RSW Lights generation failed:\n{ex}"
+            );
+        }
+        finally
+        {
+            if (world != null)
+            {
+                UnityEngine.Object.DestroyImmediate(
+                    world
+                );
+            }
+        }
+    }
+
     [MenuItem("RuneTown/Map Import/Generate Full RSW Models")]
     public static void GenerateFullRswModels()
     {
