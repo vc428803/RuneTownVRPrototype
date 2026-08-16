@@ -1474,7 +1474,8 @@ public static class RuneTownMapImportTestWindow
     public static void ImportGatTest()
     {
         // 修改原因：建立 RuneTown 第一版 Ragnarok GAT 匯入測試入口，
-        // 先驗證 .gat 可以成功解析成 RoMapData 與 RagnarokWalkData。
+        // 驗證 .gat 可以成功解析成 RoMapData 與 RagnarokWalkData，
+        // 並正式接入 RSW 的 Water.Level 作為水位判斷依據。
         var gatPath = EditorUtility.OpenFilePanel(
             "Select Ragnarok GAT",
             "",
@@ -1484,11 +1485,59 @@ public static class RuneTownMapImportTestWindow
         if (string.IsNullOrWhiteSpace(gatPath))
             return;
 
+        var rswPath = EditorUtility.OpenFilePanel(
+            "Select Matching Ragnarok RSW",
+            Path.GetDirectoryName(gatPath),
+            "rsw"
+        );
+
+        if (string.IsNullOrWhiteSpace(rswPath))
+            return;
+
+        RagnarokWorld world = null;
+
         try
         {
-            // 修改原因：目前 GAT 測試階段尚未接入 RSW 水面資料，
-            // 先以 0 作為 waterHeight，優先驗證 GAT Binary 解析與 Walk Data 輸出流程。
-            const float waterHeight = 0f;
+            const string mapAssetPath =
+                "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+            var mapData =
+                AssetDatabase.LoadAssetAtPath<RoMapData>(
+                    mapAssetPath
+                );
+
+            if (mapData == null)
+            {
+                Debug.LogError(
+                    $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+                );
+                return;
+            }
+
+            // 修改原因：GAT 的 Water Cell 判斷需要使用 RSW 內實際 Water.Level，
+            // 不再沿用測試階段固定 waterHeight = 0 的做法。
+            world =
+                RagnarokResourceLoader.LoadResourceFile(
+                    rswPath,
+                    mapData
+                );
+
+            if (world == null)
+            {
+                Debug.LogError(
+                    "[RuneTown Map Import] GAT import failed: RagnarokWorld is null."
+                );
+                return;
+            }
+
+            // 修改原因：沿用 RebuildClient 原始 Map Import 流程計算 GAT 使用的水位，
+            // 不能直接把 RSW Water.Level 傳入 LoadWalkData。
+            var waterHeight =
+                world.Water != null
+                    ? -world.Water.Level
+                      + (world.Water.WaveHeight / 5f)
+                      - 0.01f
+                    : 0f;
 
             var importer =
                 new RagnarokWalkableDataImporter();
@@ -1502,12 +1551,13 @@ public static class RuneTownMapImportTestWindow
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            // 修改原因：輸出解析結果，方便確認 GAT 尺寸、
-            // WalkCellData 是否成功建立，以及後續測試時快速判斷結果。
+            // 修改原因：輸出實際使用的 RSW Water.Level，
+            // 方便確認 GAT Water Cell 是依正確水位重新判斷。
             Debug.Log(
                 $"[RuneTown Map Import] GAT import success: " +
                 $"{Path.GetFileNameWithoutExtension(gatPath)}, " +
                 $"Size={walkMapData.Width}x{walkMapData.Height}, " +
+                $"WaterHeight={waterHeight}, " +
                 $"WalkData={(walkMapData.WalkCellData != null ? "Created" : "Missing")}"
             );
         }
@@ -1517,8 +1567,16 @@ public static class RuneTownMapImportTestWindow
                 $"[RuneTown Map Import] GAT import failed:\n{ex}"
             );
         }
+        finally
+        {
+            if (world != null)
+            {
+                UnityEngine.Object.DestroyImmediate(
+                    world
+                );
+            }
+        }
     }
-
     [MenuItem("RuneTown/Map Import/Generate Single Chunk Test")]
     public static void GenerateSingleChunkTest()
     {
@@ -2012,6 +2070,251 @@ public static class RuneTownMapImportTestWindow
                 $"[RuneTown Map Import] Generate gl_chyard scene failed:\n{ex}"
             );
         }
+    }
+
+    [MenuItem("RuneTown/Map Import/Generate Water Test")]
+    public static void GenerateWaterTest()
+    {
+        // 修改原因：先做最小版 Water 測試，只驗證 RSW 的 Water.Level
+        // 能否正確在 gl_chyard 地圖上生成一個可見水面。
+        var rswPath = EditorUtility.OpenFilePanel(
+            "Select Ragnarok RSW",
+            "",
+            "rsw"
+        );
+
+        if (string.IsNullOrWhiteSpace(rswPath))
+            return;
+
+        RagnarokWorld world = null;
+
+        try
+        {
+            const string mapAssetPath =
+                "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+            var mapData =
+                AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
+
+            if (mapData == null)
+            {
+                Debug.LogError(
+                    $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+                );
+                return;
+            }
+
+            // 修改原因：沿用已完成的 RSW parser，直接取得水面資料。
+            world =
+                RagnarokResourceLoader.LoadResourceFile(
+                    rswPath,
+                    mapData
+                );
+
+            if (world == null)
+            {
+                Debug.LogError(
+                    "[RuneTown Map Import] Water test failed: RagnarokWorld is null."
+                );
+                return;
+            }
+
+            if (world.Water == null)
+            {
+                Debug.LogWarning(
+                    "[RuneTown Map Import] Water test skipped: RSW has no water data."
+                );
+                return;
+            }
+
+            var mapRoot =
+                GetOrCreateGeneratedMapRoot(
+                    mapData.name
+                );
+
+            const string waterRootName = "Water";
+
+            var existingWater =
+                mapRoot.transform.Find(waterRootName);
+
+            if (existingWater != null)
+            {
+                // 修改原因：重複測試時先移除舊水面，避免 Scene 裡疊出多層水面。
+                UnityEngine.Object.DestroyImmediate(
+                    existingWater.gameObject
+                );
+            }
+
+            var waterObject =
+                GameObject.CreatePrimitive(
+                    PrimitiveType.Plane
+                );
+
+            waterObject.name = waterRootName;
+
+            waterObject.transform.SetParent(
+                mapRoot.transform,
+                false
+            );
+
+            // 修改原因：Ground 目前範圍是從 (0,0) 到 (InitialSize*2)，
+            // 所以水面中心要放在地圖中央。
+            waterObject.transform.localPosition =
+                new Vector3(
+                    mapData.InitialSize.x,
+                    -world.Water.Level,
+                    mapData.InitialSize.y
+                );
+
+            waterObject.transform.localRotation =
+                Quaternion.identity;
+
+            // 修改原因：Unity Plane 預設大小為 10x10，
+            // 這裡依 RO 地圖大小放大到覆蓋整張地圖。
+            waterObject.transform.localScale =
+                new Vector3(
+                    mapData.InitialSize.x / 5f,
+                    1f,
+                    mapData.InitialSize.y / 5f
+                );
+
+            var shader =
+                Shader.Find("Universal Render Pipeline/Lit");
+
+            if (shader == null)
+            {
+                Debug.LogError(
+                    "[RuneTown Map Import] Water test failed: URP/Lit shader not found."
+                );
+                return;
+            }
+
+            var material =
+                new Material(shader);
+
+            material.name = "gl_chyard_WaterTestMaterial";
+            material.SetColor("_BaseColor", new Color(0.2f, 0.5f, 0.9f, 0.7f));
+
+            // 修改原因：先用簡單藍色材質把水面顯示出來，
+            // 目前先驗證位置與高度，不先處理真正水波動畫。
+            var renderer =
+                waterObject.GetComponent<MeshRenderer>();
+
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode =
+                UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+
+            // 修改原因：水面測試不需要碰撞，先移除 Collider 避免干擾。
+            var collider =
+                waterObject.GetComponent<Collider>();
+
+            if (collider != null)
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
+
+            Selection.activeGameObject = waterObject;
+            SceneView.FrameLastActiveSceneView();
+
+            Debug.Log(
+                $"[RuneTown Map Import] Water test generated: " +
+                $"Level={world.Water.Level}, " +
+                $"Type={world.Water.Type}, " +
+                $"WaveHeight={world.Water.WaveHeight}, " +
+                $"WaveSpeed={world.Water.WaveSpeed}, " +
+                $"WavePitch={world.Water.WavePitch}, " +
+                $"AnimSpeed={world.Water.AnimSpeed}"
+            );
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] Water test failed:\n{ex}"
+            );
+        }
+        finally
+        {
+            if (world != null)
+            {
+                UnityEngine.Object.DestroyImmediate(world);
+            }
+        }
+    }
+
+    [MenuItem("RuneTown/Map Import/Debug GAT Water Heights")]
+    public static void DebugGatWaterHeights()
+    {
+        // 修改原因：分析 GAT 中所有 Water Cell 的實際高度，
+        // 用來核對 RSW Water.Level 轉成 Unity Y 後是否合理。
+        const string walkDataPath =
+            "Assets/RuneTown/MapImport/Generated/walkdata/gl_chyard_walkdata.asset";
+
+        var walkData =
+            AssetDatabase.LoadAssetAtPath<RagnarokWalkData>(
+                walkDataPath
+            );
+
+        if (walkData == null)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] WalkData not found: {walkDataPath}"
+            );
+            return;
+        }
+
+        float minHeight = float.MaxValue;
+        float maxHeight = float.MinValue;
+        float totalHeight = 0f;
+        int waterCount = 0;
+
+        for (int i = 0; i < walkData.Cells.Length; i++)
+        {
+            var cell =
+                walkData.Cells[i];
+
+            if ((cell.Type & CellType.Water) != CellType.Water)
+                continue;
+
+            var height =
+                cell.AverageHeights;
+
+            minHeight =
+                Mathf.Min(
+                    minHeight,
+                    height
+                );
+
+            maxHeight =
+                Mathf.Max(
+                    maxHeight,
+                    height
+                );
+
+            totalHeight +=
+                height;
+
+            waterCount++;
+        }
+
+        if (waterCount == 0)
+        {
+            Debug.LogWarning(
+                "[RuneTown Map Import] No Water cells found in GAT."
+            );
+            return;
+        }
+
+        var averageHeight =
+            totalHeight / waterCount;
+
+        Debug.Log(
+            $"[RuneTown Map Import] GAT Water Heights: " +
+            $"Count={waterCount}, " +
+            $"Min={minHeight}, " +
+            $"Max={maxHeight}, " +
+            $"Average={averageHeight}"
+        );
     }
 
 }
