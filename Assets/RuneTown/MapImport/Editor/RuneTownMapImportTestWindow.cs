@@ -9,6 +9,385 @@ using System.Collections.Generic;
 
 public static class RuneTownMapImportTestWindow
 {
+    [MenuItem("RuneTown/Map Import/Generate Full RSW Models")]
+    public static void GenerateFullRswModels()
+    {
+        // 修改原因：10 個真實 RSM 已驗證成功，
+        // 現在依照 RSW 全部 Model Placement 生成完整地圖模型。
+        var rswPath = EditorUtility.OpenFilePanel(
+            "Select Ragnarok RSW",
+            "",
+            "rsw"
+        );
+
+        if (string.IsNullOrWhiteSpace(rswPath))
+            return;
+
+        RagnarokWorld world = null;
+
+        // 修改原因：同一個 RSM 在 RSW 中可能被放置多次，
+        // 每種 RSM 只 Load / Compile 一次，之後直接 Instantiate Template。
+        var modelTemplates =
+            new Dictionary<string, GameObject>(
+                System.StringComparer.OrdinalIgnoreCase
+            );
+
+        // 修改原因：若某個 RSM 本身載入失敗，
+        // 記錄後跳過同檔案後續 Placement，避免重複報錯。
+        var failedFiles =
+            new HashSet<string>(
+                System.StringComparer.OrdinalIgnoreCase
+            );
+
+        try
+        {
+            const string mapAssetPath =
+                "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+            var mapData =
+                AssetDatabase.LoadAssetAtPath<RoMapData>(
+                    mapAssetPath
+                );
+
+            if (mapData == null)
+            {
+                Debug.LogError(
+                    $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
+                );
+                return;
+            }
+
+            // 修改原因：沿用目前已驗證成功的 RSW parser，
+            // 取得 gl_chyard 全部 Model Placement。
+            world =
+                RagnarokResourceLoader.LoadResourceFile(
+                    rswPath,
+                    mapData
+                );
+
+            if (world == null ||
+                world.Models == null ||
+                world.Models.Count == 0)
+            {
+                Debug.LogError(
+                    "[RuneTown Map Import] RSW contains no models."
+                );
+                return;
+            }
+
+            var mapRoot =
+                GetOrCreateGeneratedMapRoot(
+                    mapData.name
+                );
+
+            const string modelsRootName =
+                "Models";
+
+            // 修改原因：正式完整 Models 生成時，
+            // 只清除既有 Models，不影響 Ground 或其他地圖內容。
+            var existingModelsRoot =
+                mapRoot.transform.Find(
+                    modelsRootName
+                );
+
+            if (existingModelsRoot != null)
+            {
+                UnityEngine.Object.DestroyImmediate(
+                    existingModelsRoot.gameObject
+                );
+            }
+
+            var modelsRoot =
+                new GameObject(
+                    modelsRootName
+                );
+
+            modelsRoot.transform.SetParent(
+                mapRoot.transform,
+                false
+            );
+
+            // 修改原因：沿用 RebuildClient 的 RSW Resource Root InitialSize Offset。
+            modelsRoot.transform.localPosition =
+                new Vector3(
+                    mapData.InitialSize.x,
+                    0f,
+                    mapData.InitialSize.y
+                );
+
+            var dataDirectory =
+                RagnarokDirectory.GetRagnarokDataDirectory;
+
+            int generatedCount = 0;
+            int missingCount = 0;
+            int failedCount = 0;
+            int uniqueModelCount = 0;
+
+            for (int i = 0; i < world.Models.Count; i++)
+            {
+                var placement =
+                    world.Models[i];
+
+                if (placement == null ||
+                    string.IsNullOrWhiteSpace(placement.FileName))
+                {
+                    continue;
+                }
+
+                if (failedFiles.Contains(placement.FileName))
+                {
+                    failedCount++;
+                    continue;
+                }
+
+                GameObject template;
+
+                // 修改原因：只有第一次遇到某個 RSM 時才真正讀取及 Compile；
+                // 同一模型其他 Placement 直接使用已建立的 Template。
+                if (!modelTemplates.TryGetValue(
+                        placement.FileName,
+                        out template))
+                {
+                    var modelPath =
+                        Path.Combine(
+                            dataDirectory,
+                            "model",
+                            placement.FileName
+                        )
+                        .Replace("\\", "/");
+
+                    if (!File.Exists(modelPath))
+                    {
+                        Debug.LogWarning(
+                            $"[RuneTown Map Import] Skip missing RSM: {modelPath}"
+                        );
+
+                        failedFiles.Add(
+                            placement.FileName
+                        );
+
+                        missingCount++;
+                        continue;
+                    }
+
+                    var savePath =
+                        DirectoryHelper.GetRelativeDirectory(
+                            dataDirectory,
+                            Path.GetDirectoryName(modelPath)
+                        );
+
+                    RagnarokModelLoader modelLoader = null;
+
+                    try
+                    {
+                        modelLoader =
+                            new RagnarokModelLoader();
+
+                        modelLoader.LoadModel(
+                            modelPath,
+                            savePath
+                        );
+
+                        template =
+                            modelLoader.Compile();
+
+                        if (template == null)
+                        {
+                            Debug.LogError(
+                                $"[RuneTown Map Import] RSM Compile returned null: {placement.FileName}"
+                            );
+
+                            failedFiles.Add(
+                                placement.FileName
+                            );
+
+                            failedCount++;
+                            continue;
+                        }
+
+                        // 修改原因：Template 只用來複製 Placement，
+                        // 不應直接成為正式 Scene 中的一個模型。
+                        template.name =
+                            $"RSM_Template_{Path.GetFileNameWithoutExtension(placement.FileName)}";
+
+                        template.SetActive(
+                            false
+                        );
+
+                        template.hideFlags =
+                            HideFlags.HideAndDontSave;
+
+                        modelTemplates.Add(
+                            placement.FileName,
+                            template
+                        );
+
+                        uniqueModelCount++;
+                    }
+                    catch (System.Exception modelEx)
+                    {
+                        Debug.LogError(
+                            $"[RuneTown Map Import] Failed to load RSM: " +
+                            $"{placement.FileName}\n{modelEx}"
+                        );
+
+                        failedFiles.Add(
+                            placement.FileName
+                        );
+
+                        failedCount++;
+                        continue;
+                    }
+                    finally
+                    {
+                        modelLoader?.Dispose();
+                    }
+                }
+
+                // 修改原因：每一筆 RSW Placement 都需要獨立 GameObject，
+                // 但共用同一份 Mesh / Material 資產。
+                var realModel =
+                    UnityEngine.Object.Instantiate(
+                        template
+                    );
+
+                realModel.hideFlags =
+                    HideFlags.None;
+
+                realModel.SetActive(
+                    true
+                );
+
+                realModel.name =
+                    $"RSM_{i}_{Path.GetFileNameWithoutExtension(placement.FileName)}";
+
+                realModel.transform.SetParent(
+                    modelsRoot.transform,
+                    false
+                );
+
+                // 修改原因：沿用已驗證成功的 RSW Position 轉換。
+                realModel.transform.localPosition =
+                    new Vector3(
+                        placement.Position.x / 5f,
+                        -placement.Position.y / 5f,
+                        placement.Position.z / 5f
+                    )
+                    + new Vector3(
+                        0f,
+                        0.01f,
+                        0f
+                    );
+
+                // 修改原因：沿用 RebuildClient 的 RSW Rotation 組合順序。
+                var rz =
+                    Matrix4x4.Rotate(
+                        Quaternion.Euler(
+                            0f,
+                            0f,
+                            -placement.Rotation.z
+                        )
+                    );
+
+                var rx =
+                    Matrix4x4.Rotate(
+                        Quaternion.Euler(
+                            -placement.Rotation.x,
+                            0f,
+                            0f
+                        )
+                    );
+
+                var ry =
+                    Matrix4x4.Rotate(
+                        Quaternion.Euler(
+                            0f,
+                            placement.Rotation.y,
+                            0f
+                        )
+                    );
+
+                var finalRotation =
+                    rz * rx * ry;
+
+                realModel.transform.localRotation =
+                    finalRotation.rotation;
+
+                realModel.transform.localScale =
+                    placement.Scale;
+
+                generatedCount++;
+
+                // 修改原因：完整地圖可能接近千筆 Placement，
+                // 每 100 個輸出一次進度，避免 Console 被大量逐筆 Log 塞滿。
+                if (generatedCount % 100 == 0)
+                {
+                    Debug.Log(
+                        $"[RuneTown Map Import] Full RSW Models progress: " +
+                        $"{generatedCount}/{world.Models.Count}"
+                    );
+                }
+            }
+
+            // 修改原因：正式 Placement 全部建立完成後，
+            // Template 已不再需要，避免殘留在 Editor Scene。
+            foreach (var pair in modelTemplates)
+            {
+                if (pair.Value != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(
+                        pair.Value
+                    );
+                }
+            }
+
+            modelTemplates.Clear();
+
+            Selection.activeGameObject =
+                modelsRoot;
+
+            SceneView.FrameLastActiveSceneView();
+
+            EditorUtility.SetDirty(
+                mapRoot
+            );
+
+            Debug.Log(
+                $"[RuneTown Map Import] Full RSW Models generated successfully: " +
+                $"Placements={generatedCount}/{world.Models.Count}, " +
+                $"UniqueRSM={uniqueModelCount}, " +
+                $"Missing={missingCount}, " +
+                $"Failed={failedCount}"
+            );
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError(
+                $"[RuneTown Map Import] Full RSW Models generation failed:\n{ex}"
+            );
+        }
+        finally
+        {
+            // 修改原因：若流程中途發生例外，也必須清除暫存 Template。
+            foreach (var pair in modelTemplates)
+            {
+                if (pair.Value != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(
+                        pair.Value
+                    );
+                }
+            }
+
+            if (world != null)
+            {
+                UnityEngine.Object.DestroyImmediate(
+                    world
+                );
+            }
+        }
+    }
+
     [MenuItem("RuneTown/Map Import/Debug Object Shader")]
     public static void DebugObjectShader()
     {
@@ -1333,7 +1712,6 @@ public static class RuneTownMapImportTestWindow
             $"Chunks={chunkCountX}x{chunkCountY}, Total={generatedChunkCount}"
         );
     }
-
 
     [MenuItem("RuneTown/Map Import/Generate 2x2 Chunks Test")]
     public static void Generate2x2ChunksTest()
