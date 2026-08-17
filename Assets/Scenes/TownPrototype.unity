@@ -4081,7 +4081,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Locomotion.XRBodyTransformer
   m_XROrigin: {fileID: 340418268}
   m_BodyPositionEvaluatorObject: {fileID: 0}
-  m_ConstrainedBodyManipulatorObject: {fileID: 0}
+  m_ConstrainedBodyManipulatorObject: {fileID: 11400000, guid: 60a30f9d14d2cfc44b6a016a57d3b62b, type: 2}
   m_UseCharacterControllerIfExists: 1
 --- !u!114 &340418279
 MonoBehaviour:
