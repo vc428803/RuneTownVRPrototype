@@ -14,7 +14,7 @@ namespace Assets.Scripts.MapEditor
     public class RoMapChunk : MonoBehaviour
     {
         public RoMapData MapData;
-
+        
         public MeshRenderer MeshRenderer;
         public MeshFilter MeshFilter;
         public MeshCollider Collider;
@@ -305,6 +305,20 @@ namespace Assets.Scripts.MapEditor
 
             MeshFilter.sharedMesh = Mesh;
             Collider.sharedMesh = Mesh;
+
+            // 修改原因：確認 WalkMap Mesh 在 RebuildMeshData 完成當下
+            // 是否真的建立成功並指定給 MeshFilter / MeshCollider，
+            // 用來定位 Mesh 是生成失敗，還是生成後才遺失。
+            Debug.Log(
+                $"[RoMapChunk] Mesh assignment debug: " +
+                $"Object={gameObject.name}, " +
+                $"IsWalkTable={MapData.IsWalkTable}, " +
+                $"Layer={gameObject.layer}, " +
+                $"MeshNull={(Mesh == null)}, " +
+                $"VertexCount={(Mesh != null ? Mesh.vertexCount : -1)}, " +
+                $"FilterMeshNull={(MeshFilter.sharedMesh == null)}, " +
+                $"ColliderMeshNull={(Collider.sharedMesh == null)}"
+            );
 
             NeedsUVUpdate = true;
 

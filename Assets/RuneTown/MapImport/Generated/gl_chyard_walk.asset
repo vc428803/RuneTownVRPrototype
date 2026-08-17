@@ -1,0 +1,85 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4430dfc5cb4299d4fb4103c875a12691, type: 3}
+  m_Name: gl_chyard_walk
+  m_EditorClassIdentifier: Assembly-CSharp::Assets.Scripts.MapEditor.RoMapData
+  Width: 304
+  Height: 304
+  InitialSize: {x: 300, y: 300}
+  Textures:
+  - {fileID: 2800000, guid: 70c9d2363e851c54d80dcfc9ad89191e, type: 3}
+  - {fileID: 2800000, guid: 9d2c6d7df89c8fb4c9404bf0cd31787e, type: 3}
+  - {fileID: 2800000, guid: b65d65e3f2fa53e41953867cae8cae0a, type: 3}
+  - {fileID: 2800000, guid: 3fa3be3ea7855aa469d94d5e896b1668, type: 3}
+  - {fileID: 2800000, guid: 62e05db395246494289896302d54b0ac, type: 3}
+  - {fileID: 2800000, guid: a47d056ae7fa93240942e674ab91c0e0, type: 3}
+  - {fileID: 2800000, guid: a76b837f3d1d12140be3df97d0282d01, type: 3}
+  - {fileID: 2800000, guid: b32a13d71400ae945b0cfcda28f68fde, type: 3}
+  - {fileID: 2800000, guid: de6e1c9b40fef764db503f8902975eaf, type: 3}
+  Atlas: {fileID: 2800000, guid: 51b8398848228d34699493869f94b569, type: 3}
+  AtlasRects:
+  - serializedVersion: 2
+    x: 0.5078125
+    y: 0
+    width: 0.0625
+    height: 0.125
+  - serializedVersion: 2
+    x: 0
+    y: 0
+    width: 0.5
+    height: 1
+  - serializedVersion: 2
+    x: 0.578125
+    y: 0
+    width: 0.0625
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.6484375
+    y: 0
+    width: 0.0625
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.71875
+    y: 0
+    width: 0.0625
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.7890625
+    y: 0
+    width: 0.0625
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.859375
+    y: 0
+    width: 0.0625
+    height: 0.125
+  - serializedVersion: 2
+    x: 0.5078125
+    y: 0.140625
+    width: 0.015625
+    height: 0.03125
+  - serializedVersion: 2
+    x: 0.9296875
+    y: 0
+    width: 0.0625
+    height: 0.125
+  IsWalkTable: 1
+  WalkData: {fileID: 0}
+  WalkCellData: {fileID: 11400000, guid: cbe1fadcf45de254a8d2a2989c6ddf07, type: 2}
+  Water:
+    Level: 0
+    Type: 0
+    WaveHeight: 0
+    WaveSpeed: 0
+    WavePitch: 0
+    AnimSpeed: 0
+    Images: []

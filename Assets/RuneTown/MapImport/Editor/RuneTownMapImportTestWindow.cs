@@ -467,8 +467,94 @@ public static class RuneTownMapImportTestWindow
             $"GND Width={mapData.Width}, Height={mapData.Height}"
         );
 
-        // 修改原因：只使用測試物件目前的 X/Z，
-        // 從足夠高的位置向下檢查所有 Ground Collider。
+        // 修改原因：依照原版 RoWalkDataProvider 的規則，
+        // 世界 X/Z 直接對應 GAT Cell 座標，
+        // 用來驗證目前 GroundProbe 所在位置的 GAT 四角高度是否形成斜坡。
+        int gatX =
+            Mathf.FloorToInt(
+                selectedPosition.x
+            );
+
+        int gatY =
+            Mathf.FloorToInt(
+                selectedPosition.z
+            );
+
+        if (gatX < 0 ||
+            gatX >= walkData.Width ||
+            gatY < 0 ||
+            gatY >= walkData.Height)
+        {
+            UnityEngine.Debug.LogError(
+                $"[RuneTown Map Import] GAT Cell 超出範圍：" +
+                $"Cell=({gatX},{gatY})"
+            );
+            return;
+        }
+
+        var gatCell =
+            walkData.Cell(
+                gatX,
+                gatY
+            );
+
+        UnityEngine.Debug.Log(
+            $"[RuneTown Map Import] GAT Cell Debug: " +
+            $"Cell=({gatX},{gatY}), " +
+            $"Heights=({gatCell.Heights[0]:F3}, " +
+            $"{gatCell.Heights[1]:F3}, " +
+            $"{gatCell.Heights[2]:F3}, " +
+            $"{gatCell.Heights[3]:F3}), " +
+            $"UnityY=({gatCell.Heights[0] * RoMapData.YScale:F3}, " +
+            $"{gatCell.Heights[1] * RoMapData.YScale:F3}, " +
+            $"{gatCell.Heights[2] * RoMapData.YScale:F3}, " +
+            $"{gatCell.Heights[3] * RoMapData.YScale:F3}), " +
+            $"Type={gatCell.Type}"
+        );
+
+        // 修改原因：單一 GAT Cell 可能本身是平的，
+        // 但整段坡道可能由相鄰 Cell 高度逐格變化形成，
+        // 因此列出目前 GAT Cell 周圍 3x3 範圍的四角高度與平均高度。
+        for (int offsetY = -1; offsetY <= 1; offsetY++)
+        {
+            for (int offsetX = -1; offsetX <= 1; offsetX++)
+            {
+                int debugGatX =
+                    gatX + offsetX;
+
+                int debugGatY =
+                    gatY + offsetY;
+
+                if (debugGatX < 0 ||
+                    debugGatX >= walkData.Width ||
+                    debugGatY < 0 ||
+                    debugGatY >= walkData.Height)
+                {
+                    continue;
+                }
+
+                var nearbyCell =
+                    walkData.Cell(
+                        debugGatX,
+                        debugGatY
+                    );
+
+                UnityEngine.Debug.Log(
+                    $"[RuneTown Map Import] GAT Nearby Cell: " +
+                    $"Cell=({debugGatX},{debugGatY}), " +
+                    $"Heights=({nearbyCell.Heights[0]:F3}, " +
+                    $"{nearbyCell.Heights[1]:F3}, " +
+                    $"{nearbyCell.Heights[2]:F3}, " +
+                    $"{nearbyCell.Heights[3]:F3}), " +
+                    $"AverageUnityY={nearbyCell.AverageHeights * RoMapData.YScale:F3}, " +
+                    $"Type={nearbyCell.Type}"
+                );
+            }
+        }
+
+        // 修改原因：建立共用 Raycast 起點，
+        // Ground 與 WalkMap 都從同一個 X/Z 位置由上往下檢查，
+        // 方便直接比較兩層 Collider 的實際世界高度。
         var rayOrigin =
             new Vector3(
                 selectedPosition.x,
@@ -476,6 +562,70 @@ public static class RuneTownMapImportTestWindow
                 selectedPosition.z
             );
 
+        // 修改原因：直接 Raycast WalkMap Layer，
+        // 確認剛生成的 GAT Walk MeshCollider 是否真的覆蓋 GroundProbe，
+        // 以及其實際 Y 高度是否與玩家所在坡道一致。
+        int walkMapLayer =
+            LayerMask.NameToLayer(
+                "WalkMap"
+            );
+
+        if (walkMapLayer < 0)
+        {
+            UnityEngine.Debug.LogError(
+                "[RuneTown Map Import] 找不到 WalkMap Layer。"
+            );
+        }
+        else
+        {
+            int walkMapMask =
+                1 << walkMapLayer;
+
+            RaycastHit[] walkHits =
+                Physics.RaycastAll(
+                    rayOrigin,
+                    Vector3.down,
+                    2000f,
+                    walkMapMask
+                );
+
+            System.Array.Sort(
+                walkHits,
+                (a, b) =>
+                    a.distance.CompareTo(
+                        b.distance
+                    )
+            );
+
+            UnityEngine.Debug.Log(
+                $"[RuneTown Map Import] WalkMap RaycastAll: " +
+                $"Probe={selectedObject.name}, " +
+                $"HitCount={walkHits.Length}"
+            );
+
+            for (int i = 0; i < walkHits.Length; i++)
+            {
+                RaycastHit walkHit =
+                    walkHits[i];
+
+                float walkSlopeAngle =
+                    Vector3.Angle(
+                        walkHit.normal,
+                        Vector3.up
+                    );
+
+                UnityEngine.Debug.Log(
+                    $"[RuneTown Map Import] WalkMap Hit #{i + 1}: " +
+                    $"Collider={walkHit.collider.gameObject.name}, " +
+                    $"Point=({walkHit.point.x:F3}, {walkHit.point.y:F3}, {walkHit.point.z:F3}), " +
+                    $"Normal=({walkHit.normal.x:F3}, {walkHit.normal.y:F3}, {walkHit.normal.z:F3}), " +
+                    $"SlopeAngle={walkSlopeAngle:F2}°"
+                );
+            }
+        }
+
+        // 修改原因：同一個 GroundProbe 位置再檢查原本 GND Ground Collider，
+        // 方便與上面的 WalkMap Raycast 結果直接比較。
         int groundMask =
             1 << groundLayer;
 
@@ -538,6 +688,7 @@ public static class RuneTownMapImportTestWindow
             );
         }
     }
+
     [MenuItem("RuneTown/Map Import/Generate Full RSW Models")]
     public static void GenerateFullRswModels()
     {
@@ -2077,6 +2228,33 @@ public static class RuneTownMapImportTestWindow
                     waterHeight
                 );
 
+            // 修改原因：保留 GAT 匯入後的完整 RoMapData，
+            // 讓後續 Scene 生成可以直接建立 GAT Walk Mesh / MeshCollider，
+            // 不只保留 RagnarokWalkData 高度資料。
+            const string walkMapAssetPath =
+                "Assets/RuneTown/MapImport/Generated/gl_chyard_walk.asset";
+
+            walkMapData.name =
+                "gl_chyard_walk";
+
+            if (AssetDatabase.LoadAssetAtPath<RoMapData>(walkMapAssetPath) != null)
+            {
+                AssetDatabase.DeleteAsset(
+                    walkMapAssetPath
+                );
+            }
+
+            AssetDatabase.CreateAsset(
+                walkMapData,
+                walkMapAssetPath
+            );
+
+            // 修改原因：RoMapChunk 建立 GAT Walk Mesh 時會使用 TextureLookup 與 AtlasRects，
+            // 因此 GAT RoMapData 存成 Asset 後，需要沿用原版 RebuildClient 流程
+            // 建立 WalkMap 專用 Atlas，避免 GetUVsForTexture() 取得空的 AtlasRects。
+            walkMapData.RefreshTextureLookup();
+            walkMapData.RebuildAtlas();
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
@@ -2106,6 +2284,8 @@ public static class RuneTownMapImportTestWindow
             }
         }
     }
+
+
     [MenuItem("RuneTown/Map Import/Generate Single Chunk Test")]
     public static void GenerateSingleChunkTest()
     {
@@ -2113,6 +2293,12 @@ public static class RuneTownMapImportTestWindow
         // 驗證 RuneTown 的 RoMapData → RoMapChunk → MeshBuilder 地形生成流程。
         const string mapAssetPath =
             "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+        // 修改原因：載入 GAT 產生的完整 Walk RoMapData，
+        // 後續用來建立隱形 WalkMap MeshCollider，
+        // 讓玩家實際依照 RO WalkData 的高度與斜坡移動。
+        const string walkMapAssetPath =
+            "Assets/RuneTown/MapImport/Generated/gl_chyard_walk.asset";
 
         var mapData = AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
 
@@ -2174,6 +2360,8 @@ public static class RuneTownMapImportTestWindow
 
         var mapData =
             AssetDatabase.LoadAssetAtPath<RoMapData>(mapAssetPath);
+
+
 
         if (mapData == null)
         {
@@ -2427,6 +2615,12 @@ public static class RuneTownMapImportTestWindow
         const string mapAssetPath =
             "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
 
+        // 修改原因：載入 GAT 產生的完整 Walk RoMapData，
+        // 後續用來建立隱形 WalkMap MeshCollider，
+        // 讓玩家實際依照 RO WalkData 的高度與斜坡移動。
+        const string walkMapAssetPath =
+            "Assets/RuneTown/MapImport/Generated/gl_chyard_walk.asset";
+
         const string sceneFolder =
             "Assets/Scenes/RO";
 
@@ -2437,6 +2631,21 @@ public static class RuneTownMapImportTestWindow
             AssetDatabase.LoadAssetAtPath<RoMapData>(
                 mapAssetPath
             );
+
+        // 修改原因：取得 GAT Walk RoMapData，
+        // 與原本 GND mapData 分開使用。
+        var walkMapData =
+            AssetDatabase.LoadAssetAtPath<RoMapData>(
+                walkMapAssetPath
+            );
+
+        if (walkMapData == null)
+        {
+            UnityEngine.Debug.LogError(
+                $"[RuneTown Map Import] Walk map asset not found: {walkMapAssetPath}"
+            );
+            return;
+        }
 
         if (mapData == null)
         {
@@ -2479,6 +2688,19 @@ public static class RuneTownMapImportTestWindow
                 );
 
             groundObject.transform.SetParent(
+                mapRoot.transform,
+                false
+            );
+
+            // 修改原因：建立獨立 WalkMap 父物件，
+            // 後續將 GAT WalkData 產生的隱形 MeshCollider 集中放在此物件下，
+            // 與目前顯示用的 GND Ground 分開管理。
+            var walkMapObject =
+                new GameObject(
+                    "WalkMap"
+                );
+
+            walkMapObject.transform.SetParent(
                 mapRoot.transform,
                 false
             );
@@ -2843,6 +3065,177 @@ public static class RuneTownMapImportTestWindow
             $"Min={minHeight}, " +
             $"Max={maxHeight}, " +
             $"Average={averageHeight}"
+        );
+    }
+
+    // 修改原因：先只在目前 gl_chyard Scene 的實際坡道區域生成 GAT WalkMap Collider，
+    // 不重新建立整張 Scene，避免影響已存在的 Models、Lights、Spawn 等內容。
+    // 此測試用來確認 XR CharacterController 是否能沿原版 RO GAT 高度自然上下坡。
+    [MenuItem("RuneTown/Map Import/Generate GAT Walk Collider Slope Test")]
+    public static void GenerateGatWalkColliderSlopeTest()
+    {
+        const string walkMapAssetPath =
+            "Assets/RuneTown/MapImport/Generated/gl_chyard_walk.asset";
+
+        // 修改原因：直接使用剛才成功保存的完整 GAT RoMapData。
+        var walkMapData =
+            AssetDatabase.LoadAssetAtPath<RoMapData>(
+                walkMapAssetPath
+            );
+
+        if (walkMapData == null)
+        {
+            UnityEngine.Debug.LogError(
+                $"[RuneTown Map Import] Walk map asset not found: {walkMapAssetPath}"
+            );
+            return;
+        }
+
+        // 修改原因：沿用目前正式 gl_chyard 的 GeneratedMapRoot，
+        // 不建立新 Scene，也不破壞 Ground / Models / Lights。
+        var mapRoot =
+            GameObject.Find(
+                "gl_chyard_GeneratedMapRoot"
+            );
+
+        if (mapRoot == null)
+        {
+            UnityEngine.Debug.LogError(
+                "[RuneTown Map Import] 找不到 gl_chyard_GeneratedMapRoot。"
+            );
+            return;
+        }
+
+        var walkMapTransform =
+            mapRoot.transform.Find(
+                "WalkMap"
+            );
+
+        GameObject walkMapObject;
+
+        // 修改原因：如果前面尚未建立 WalkMap，就在目前 Scene 補上一個；
+        // 已存在時直接沿用。
+        if (walkMapTransform == null)
+        {
+            walkMapObject =
+                new GameObject(
+                    "WalkMap"
+                );
+
+            walkMapObject.transform.SetParent(
+                mapRoot.transform,
+                false
+            );
+        }
+        else
+        {
+            walkMapObject =
+                walkMapTransform.gameObject;
+        }
+
+        // 修改原因：清掉先前的 WalkMap 測試 Chunk，
+        // 避免重複執行工具後產生多層 Collider。
+        while (walkMapObject.transform.childCount > 0)
+        {
+            UnityEngine.Object.DestroyImmediate(
+                walkMapObject.transform.GetChild(0).gameObject
+            );
+        }
+
+        const int chunkSize = 16;
+
+        // 修改原因：GAT 在原版 RoWalkDataProvider 中為 1 Cell = 1 Unity unit，
+        // 不使用 GND 的 tileSize = 2f。
+        const float walkTileSize = 1f;
+
+        // 修改原因：目前畫面確認的坡道位於 GND Chunk_4_1，
+        // 世界範圍約 X=128~160、Z=32~64；
+        // GAT 需要用 2x2 個 16x16 Chunk 覆蓋同一世界範圍。
+        const int startX = 128;
+        const int startY = 32;
+
+        // 修改原因：RoMapChunk.Initialize 需要 Material，
+        // 但 WalkMap 僅作 Physics Collider 使用，生成後會停用 Renderer。
+        var material =
+            new Material(
+                Shader.Find(
+                    "Universal Render Pipeline/Lit"
+                )
+            );
+
+        material.name =
+            "gl_chyard_WalkColliderTestMaterial";
+
+        int generatedCount = 0;
+
+        // 修改原因：實際坡道延伸到 Z 約 65.69，
+        // 原本兩排 WalkChunk 只覆蓋到 Z=64，
+        // 因此增加第三排，讓測試範圍延伸到 Z=80。
+        for (int chunkY = 0; chunkY < 3; chunkY++)
+        {
+            for (int chunkX = 0; chunkX < 2; chunkX++)
+            {
+                int boundsX =
+                    startX + chunkX * chunkSize;
+
+                int boundsY =
+                    startY + chunkY * chunkSize;
+
+                var bounds =
+                    new RectInt(
+                        boundsX,
+                        boundsY,
+                        chunkSize,
+                        chunkSize
+                    );
+
+                var chunkObject =
+                    new GameObject(
+                        $"WalkChunk_{boundsX}_{boundsY}"
+                    );
+
+                chunkObject.transform.SetParent(
+                    walkMapObject.transform,
+                    false
+                );
+
+                // 修改原因：GAT 世界座標直接使用 1 unit per cell，
+                // 讓 Walk Collider 與原版 RoWalkDataProvider 的座標規則一致。
+                chunkObject.transform.localPosition =
+                    new Vector3(
+                        boundsX * walkTileSize,
+                        0f,
+                        boundsY * walkTileSize
+                    );
+
+                var chunk =
+                    chunkObject.AddComponent<RoMapChunk>();
+
+                chunk.Initialize(
+                    walkMapData,
+                    material,
+                    material,
+                    bounds,
+                    walkTileSize,
+                    false
+                );
+
+                // 修改原因：WalkMap 只提供 Physics Collider，
+                // 不讓測試用 GAT 顏色 Mesh 蓋住目前正常的 GND 畫面。
+                if (chunk.MeshRenderer != null)
+                {
+                    chunk.MeshRenderer.enabled =
+                        false;
+                }
+
+                generatedCount++;
+            }
+        }
+
+        UnityEngine.Debug.Log(
+            $"[RuneTown Map Import] GAT Walk Collider slope test generated: " +
+            $"Chunks={generatedCount}, " +
+            $"WorldArea=X128~160 / Z32~80"
         );
     }
 
