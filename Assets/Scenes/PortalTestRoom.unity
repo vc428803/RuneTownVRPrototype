@@ -192,8 +192,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c6e222e08e9cf84cae7bed3afaf3e18, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PortalTrigger
-  targetSceneName: TownPrototype
-  targetSpawnId: FromTestRoom
+  targetSceneName: gl_chyard
+  targetSpawnId: gl_chyard_entry
   triggerCooldown: 2
 --- !u!54 &235213822
 Rigidbody:

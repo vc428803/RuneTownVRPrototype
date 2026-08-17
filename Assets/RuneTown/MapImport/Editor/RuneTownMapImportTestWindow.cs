@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEngine;
 // 修改原因：RSW 10 Real Models 測試需要用 HashSet 過濾重複的 RSM FileName。
 using System.Collections.Generic;
+using System.Diagnostics;
 
 public static class RuneTownMapImportTestWindow
 {
@@ -37,7 +38,7 @@ public static class RuneTownMapImportTestWindow
 
             if (mapData == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
                 );
                 return;
@@ -54,7 +55,7 @@ public static class RuneTownMapImportTestWindow
                 world.Lights == null ||
                 world.Lights.Count == 0)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] RSW contains no lights."
                 );
                 return;
@@ -218,14 +219,14 @@ public static class RuneTownMapImportTestWindow
                 mapRoot
             );
 
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] RSW Lights generated successfully: " +
                 $"{generatedCount}/{world.Lights.Count}"
             );
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] RSW Lights generation failed:\n{ex}"
             );
         }
@@ -238,6 +239,113 @@ public static class RuneTownMapImportTestWindow
                 );
             }
         }
+    }
+
+    // 修改原因：讓地圖 Spawn Point 可以依照目前 X/Z 位置，
+    // 自動向下 Raycast 尋找 Ground Layer 的 Collider，
+    // 避免不同地圖或不同生成結果需要人工猜測 Y 高度。
+    [MenuItem("RuneTown/Map Import/Snap Selected Spawn To Ground")]
+    public static void SnapSelectedSpawnToGround()
+    {
+        var selectedObject =
+            Selection.activeGameObject;
+
+        if (selectedObject == null)
+        {
+            UnityEngine.Debug.LogError(
+                "[RuneTown Map Import] 請先選擇一個 Spawn GameObject。"
+            );
+            return;
+        }
+
+        var spawnPoint =
+            selectedObject.GetComponent<PortalSpawnPoint>();
+
+        if (spawnPoint == null)
+        {
+            UnityEngine.Debug.LogError(
+                "[RuneTown Map Import] 選取的 GameObject 沒有 PortalSpawnPoint。"
+            );
+            return;
+        }
+
+        int groundLayer =
+            LayerMask.NameToLayer(
+                "Ground"
+            );
+
+        if (groundLayer < 0)
+        {
+            UnityEngine.Debug.LogError(
+                "[RuneTown Map Import] 找不到 Ground Layer。"
+            );
+            return;
+        }
+
+        var currentPosition =
+            selectedObject.transform.position;
+
+        // 修改原因：從 Spawn 上方足夠高的位置向下射線，
+        // 使用目前 X/Z，不依賴特定地圖的 World Y。
+        var rayOrigin =
+            currentPosition
+            + Vector3.up * 1000f;
+
+        int groundMask =
+            1 << groundLayer;
+
+        if (!Physics.Raycast(
+                rayOrigin,
+                Vector3.down,
+                out RaycastHit hit,
+                2000f,
+                groundMask))
+        {
+            UnityEngine.Debug.LogError(
+                $"[RuneTown Map Import] Spawn 下方找不到 Ground Collider：" +
+                $"{selectedObject.name}"
+            );
+            return;
+        }
+
+        Undo.RecordObject(
+            selectedObject.transform,
+            "Snap Spawn To Ground"
+        );
+
+        // 修改原因：SceneTransitionManager 目前會把 XR Camera
+        // 直接移到 Spawn Position，因此 Spawn 必須放在眼睛高度，
+        // 而不是直接貼在地板表面。
+        const float eyeHeight =
+            1.6f;
+
+        selectedObject.transform.position =
+            hit.point
+            + Vector3.up * eyeHeight;
+
+        // 修改原因：Spawn 只保留水平朝向，
+        // 避免 Scene View 對齊操作留下 X / Z 傾斜。
+        var currentEuler =
+            selectedObject.transform.eulerAngles;
+
+        selectedObject.transform.rotation =
+            Quaternion.Euler(
+                0f,
+                currentEuler.y,
+                0f
+            );
+
+        EditorUtility.SetDirty(
+            selectedObject
+        );
+
+        UnityEngine.Debug.Log(
+            $"[RuneTown Map Import] Spawn snapped successfully: " +
+            $"Object={selectedObject.name}, " +
+            $"Ground={hit.collider.gameObject.name}, " +
+            $"GroundY={hit.point.y:F3}, " +
+            $"SpawnY={selectedObject.transform.position.y:F3}"
+        );
     }
 
     [MenuItem("RuneTown/Map Import/Generate Full RSW Models")]
@@ -282,7 +390,7 @@ public static class RuneTownMapImportTestWindow
 
             if (mapData == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
                 );
                 return;
@@ -300,7 +408,7 @@ public static class RuneTownMapImportTestWindow
                 world.Models == null ||
                 world.Models.Count == 0)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] RSW contains no models."
                 );
                 return;
@@ -389,7 +497,7 @@ public static class RuneTownMapImportTestWindow
 
                     if (!File.Exists(modelPath))
                     {
-                        Debug.LogWarning(
+                        UnityEngine.Debug.LogWarning(
                             $"[RuneTown Map Import] Skip missing RSM: {modelPath}"
                         );
 
@@ -424,7 +532,7 @@ public static class RuneTownMapImportTestWindow
 
                         if (template == null)
                         {
-                            Debug.LogError(
+                            UnityEngine.Debug.LogError(
                                 $"[RuneTown Map Import] RSM Compile returned null: {placement.FileName}"
                             );
 
@@ -457,7 +565,7 @@ public static class RuneTownMapImportTestWindow
                     }
                     catch (System.Exception modelEx)
                     {
-                        Debug.LogError(
+                        UnityEngine.Debug.LogError(
                             $"[RuneTown Map Import] Failed to load RSM: " +
                             $"{placement.FileName}\n{modelEx}"
                         );
@@ -553,7 +661,7 @@ public static class RuneTownMapImportTestWindow
                 // 每 100 個輸出一次進度，避免 Console 被大量逐筆 Log 塞滿。
                 if (generatedCount % 100 == 0)
                 {
-                    Debug.Log(
+                    UnityEngine.Debug.Log(
                         $"[RuneTown Map Import] Full RSW Models progress: " +
                         $"{generatedCount}/{world.Models.Count}"
                     );
@@ -583,7 +691,7 @@ public static class RuneTownMapImportTestWindow
                 mapRoot
             );
 
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] Full RSW Models generated successfully: " +
                 $"Placements={generatedCount}/{world.Models.Count}, " +
                 $"UniqueRSM={uniqueModelCount}, " +
@@ -593,7 +701,7 @@ public static class RuneTownMapImportTestWindow
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] Full RSW Models generation failed:\n{ex}"
             );
         }
@@ -637,7 +745,7 @@ public static class RuneTownMapImportTestWindow
                 "Custom/ObjectShader"
             );
 
-        Debug.Log(
+        UnityEngine.Debug.Log(
             $"[RuneTown Map Import] ObjectShader Debug: " +
             $"Asset={(shaderAsset != null ? shaderAsset.name : "NULL")}, " +
             $"Supported={(shaderAsset != null ? shaderAsset.isSupported.ToString() : "N/A")}, " +
@@ -674,7 +782,7 @@ public static class RuneTownMapImportTestWindow
 
             if (mapData == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
                 );
                 return;
@@ -688,7 +796,7 @@ public static class RuneTownMapImportTestWindow
 
             if (world == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] RSW import failed: RagnarokWorld is null."
                 );
                 return;
@@ -699,7 +807,7 @@ public static class RuneTownMapImportTestWindow
 
             // 修改原因：第一階段只輸出 RSW 解析結果，
             // 用來確認 Models / Lights / Sounds / Effects / Water 是否成功讀取。
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] RSW import success: " +
                 $"{world.MapName}, " +
                 $"Version={world.Version}, " +
@@ -712,7 +820,7 @@ public static class RuneTownMapImportTestWindow
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] RSW import failed:\n{ex}"
             );
         }
@@ -744,7 +852,7 @@ public static class RuneTownMapImportTestWindow
 
             if (mapData == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
                 );
                 return;
@@ -760,7 +868,7 @@ public static class RuneTownMapImportTestWindow
 
             if (world == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] RSW Model Placement test failed: RagnarokWorld is null."
                 );
                 return;
@@ -896,7 +1004,7 @@ public static class RuneTownMapImportTestWindow
                     );
                 }
 
-                Debug.Log(
+                UnityEngine.Debug.Log(
                     $"[RuneTown Map Import] RSW Model {i}: " +
                     $"File={model.FileName}, " +
                     $"RO Pos={model.Position}, " +
@@ -915,14 +1023,14 @@ public static class RuneTownMapImportTestWindow
                 world
             );
 
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] RSW 10 Model Placement test generated successfully: " +
                 $"Count={modelCount}"
             );
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] RSW Model Placement test failed:\n{ex}"
             );
         }
@@ -957,7 +1065,7 @@ public static class RuneTownMapImportTestWindow
 
             if (mapData == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
                 );
                 return;
@@ -975,7 +1083,7 @@ public static class RuneTownMapImportTestWindow
                 world.Models == null ||
                 world.Models.Count == 0)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] RSW contains no models."
                 );
                 return;
@@ -997,7 +1105,7 @@ public static class RuneTownMapImportTestWindow
 
             if (!File.Exists(modelPath))
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] RSM file not found: {modelPath}"
                 );
                 return;
@@ -1024,7 +1132,7 @@ public static class RuneTownMapImportTestWindow
 
             if (realModel == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] RSM Compile returned null."
                 );
                 return;
@@ -1133,7 +1241,7 @@ public static class RuneTownMapImportTestWindow
 
             SceneView.FrameLastActiveSceneView();
 
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] RSW 1 Real Model test success: " +
                 $"File={placement.FileName}, " +
                 $"Path={modelPath}, " +
@@ -1144,7 +1252,7 @@ public static class RuneTownMapImportTestWindow
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] RSW 1 Real Model test failed:\n{ex}"
             );
         }
@@ -1189,7 +1297,7 @@ public static class RuneTownMapImportTestWindow
 
             if (mapData == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
                 );
                 return;
@@ -1207,7 +1315,7 @@ public static class RuneTownMapImportTestWindow
                 world.Models == null ||
                 world.Models.Count == 0)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] RSW contains no models."
                 );
                 return;
@@ -1300,7 +1408,7 @@ public static class RuneTownMapImportTestWindow
 
                 if (!File.Exists(modelPath))
                 {
-                    Debug.LogWarning(
+                    UnityEngine.Debug.LogWarning(
                         $"[RuneTown Map Import] Skip missing RSM: {modelPath}"
                     );
                     continue;
@@ -1331,7 +1439,7 @@ public static class RuneTownMapImportTestWindow
 
                     if (realModel == null)
                     {
-                        Debug.LogError(
+                        UnityEngine.Debug.LogError(
                             $"[RuneTown Map Import] RSM Compile returned null: {placement.FileName}"
                         );
                         return;
@@ -1397,7 +1505,7 @@ public static class RuneTownMapImportTestWindow
 
                     generatedCount++;
 
-                    Debug.Log(
+                    UnityEngine.Debug.Log(
                         $"[RuneTown Map Import] Real RSM {generatedCount}/10: " +
                         $"RSW Index={i}, " +
                         $"File={placement.FileName}, " +
@@ -1416,14 +1524,14 @@ public static class RuneTownMapImportTestWindow
 
             SceneView.FrameLastActiveSceneView();
 
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] RSW 10 Real Models test finished: " +
                 $"Generated={generatedCount}"
             );
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] RSW 10 Real Models test failed:\n{ex}"
             );
         }
@@ -1460,7 +1568,7 @@ public static class RuneTownMapImportTestWindow
 
         if (walkData == null)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] Walk data not found: {walkDataPath}"
             );
             return;
@@ -1597,7 +1705,7 @@ public static class RuneTownMapImportTestWindow
         Selection.activeObject =
             generatedTexture;
 
-        Debug.Log(
+        UnityEngine.Debug.Log(
             $"[RuneTown Map Import] GAT Walk Visual generated: " +
             $"Size={walkData.Width}x{walkData.Height}, " +
             $"Walkable={walkableCount}, " +
@@ -1676,7 +1784,7 @@ public static class RuneTownMapImportTestWindow
                 EditorUtility.SetDirty(mapData);
                 AssetDatabase.SaveAssets();
 
-                Debug.Log(
+                UnityEngine.Debug.Log(
                     $"[RuneTown Map Import] Updated existing map asset: {mapAssetPath}"
                 );
             }
@@ -1688,14 +1796,14 @@ public static class RuneTownMapImportTestWindow
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] GND import success: {mapData.name}, " +
                 $"Size={mapData.Width}x{mapData.Height}, Asset={mapAssetPath}"
             );
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] GND import failed:\n{ex}"
             );
         }
@@ -1739,7 +1847,7 @@ public static class RuneTownMapImportTestWindow
 
             if (mapData == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
                 );
                 return;
@@ -1755,7 +1863,7 @@ public static class RuneTownMapImportTestWindow
 
             if (world == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] GAT import failed: RagnarokWorld is null."
                 );
                 return;
@@ -1784,7 +1892,7 @@ public static class RuneTownMapImportTestWindow
 
             // 修改原因：輸出實際使用的 RSW Water.Level，
             // 方便確認 GAT Water Cell 是依正確水位重新判斷。
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] GAT import success: " +
                 $"{Path.GetFileNameWithoutExtension(gatPath)}, " +
                 $"Size={walkMapData.Width}x{walkMapData.Height}, " +
@@ -1794,7 +1902,7 @@ public static class RuneTownMapImportTestWindow
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] GAT import failed:\n{ex}"
             );
         }
@@ -1820,7 +1928,7 @@ public static class RuneTownMapImportTestWindow
 
         if (mapData == null)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
             );
             return;
@@ -1860,7 +1968,7 @@ public static class RuneTownMapImportTestWindow
 
         // 修改原因：測試 Chunk 位置會調整，改為輸出實際 Bounds，
         // 避免 Console 顯示舊的固定座標造成誤判。
-        Debug.Log(
+        UnityEngine.Debug.Log(
             $"[RuneTown Map Import] Single Chunk generated successfully: " +
             $"gl_chyard bounds=({bounds.x},{bounds.y},{bounds.width},{bounds.height})"
         );
@@ -1879,7 +1987,7 @@ public static class RuneTownMapImportTestWindow
 
         if (mapData == null)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
             );
             return;
@@ -1995,7 +2103,7 @@ public static class RuneTownMapImportTestWindow
 
         SceneView.FrameLastActiveSceneView();
 
-        Debug.Log(
+        UnityEngine.Debug.Log(
             $"[RuneTown Map Import] Full GND terrain generated successfully: " +
             $"{mapData.name}, Size={mapData.Width}x{mapData.Height}, " +
             $"Chunks={chunkCountX}x{chunkCountY}, Total={generatedChunkCount}"
@@ -2015,7 +2123,7 @@ public static class RuneTownMapImportTestWindow
 
         if (mapData == null)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
             );
             return;
@@ -2091,7 +2199,7 @@ public static class RuneTownMapImportTestWindow
         Selection.activeGameObject = parentObject;
         SceneView.FrameLastActiveSceneView();
 
-        Debug.Log(
+        UnityEngine.Debug.Log(
             "[RuneTown Map Import] 2x2 Chunk test generated successfully: " +
             "start=(64,64), chunkSize=16, count=4"
         );
@@ -2142,7 +2250,7 @@ public static class RuneTownMapImportTestWindow
 
         if (mapData == null)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
             );
             return;
@@ -2273,7 +2381,7 @@ public static class RuneTownMapImportTestWindow
 
             if (!saved)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] Failed to save scene: {scenePath}"
                 );
                 return;
@@ -2287,7 +2395,7 @@ public static class RuneTownMapImportTestWindow
 
             SceneView.FrameLastActiveSceneView();
 
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] gl_chyard scene generated successfully: " +
                 $"Scene={scenePath}, " +
                 $"Size={mapData.Width}x{mapData.Height}, " +
@@ -2297,7 +2405,7 @@ public static class RuneTownMapImportTestWindow
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] Generate gl_chyard scene failed:\n{ex}"
             );
         }
@@ -2329,7 +2437,7 @@ public static class RuneTownMapImportTestWindow
 
             if (mapData == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     $"[RuneTown Map Import] Map asset not found: {mapAssetPath}"
                 );
                 return;
@@ -2344,7 +2452,7 @@ public static class RuneTownMapImportTestWindow
 
             if (world == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] Water test failed: RagnarokWorld is null."
                 );
                 return;
@@ -2352,7 +2460,7 @@ public static class RuneTownMapImportTestWindow
 
             if (world.Water == null)
             {
-                Debug.LogWarning(
+                UnityEngine.Debug.LogWarning(
                     "[RuneTown Map Import] Water test skipped: RSW has no water data."
                 );
                 return;
@@ -2414,7 +2522,7 @@ public static class RuneTownMapImportTestWindow
 
             if (shader == null)
             {
-                Debug.LogError(
+                UnityEngine.Debug.LogError(
                     "[RuneTown Map Import] Water test failed: URP/Lit shader not found."
                 );
                 return;
@@ -2448,7 +2556,7 @@ public static class RuneTownMapImportTestWindow
             Selection.activeGameObject = waterObject;
             SceneView.FrameLastActiveSceneView();
 
-            Debug.Log(
+            UnityEngine.Debug.Log(
                 $"[RuneTown Map Import] Water test generated: " +
                 $"Level={world.Water.Level}, " +
                 $"Type={world.Water.Type}, " +
@@ -2460,7 +2568,7 @@ public static class RuneTownMapImportTestWindow
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] Water test failed:\n{ex}"
             );
         }
@@ -2488,7 +2596,7 @@ public static class RuneTownMapImportTestWindow
 
         if (walkData == null)
         {
-            Debug.LogError(
+            UnityEngine.Debug.LogError(
                 $"[RuneTown Map Import] WalkData not found: {walkDataPath}"
             );
             return;
@@ -2530,7 +2638,7 @@ public static class RuneTownMapImportTestWindow
 
         if (waterCount == 0)
         {
-            Debug.LogWarning(
+            UnityEngine.Debug.LogWarning(
                 "[RuneTown Map Import] No Water cells found in GAT."
             );
             return;
@@ -2539,7 +2647,7 @@ public static class RuneTownMapImportTestWindow
         var averageHeight =
             totalHeight / waterCount;
 
-        Debug.Log(
+        UnityEngine.Debug.Log(
             $"[RuneTown Map Import] GAT Water Heights: " +
             $"Count={waterCount}, " +
             $"Min={minHeight}, " +
