@@ -3881,6 +3881,7 @@ GameObject:
   - component: {fileID: 340418278}
   - component: {fileID: 340418277}
   - component: {fileID: 340418279}
+  - component: {fileID: 340418280}
   m_Layer: 0
   m_Name: XR Origin (VR)
   m_TagString: Player
@@ -4081,7 +4082,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Locomotion.XRBodyTransformer
   m_XROrigin: {fileID: 340418268}
   m_BodyPositionEvaluatorObject: {fileID: 0}
-  m_ConstrainedBodyManipulatorObject: {fileID: 11400000, guid: 60a30f9d14d2cfc44b6a016a57d3b62b, type: 2}
+  m_ConstrainedBodyManipulatorObject: {fileID: 11400000, guid: 0ccacea3bcff5dc40b62d978d82d8677, type: 2}
   m_UseCharacterControllerIfExists: 1
 --- !u!114 &340418279
 MonoBehaviour:
@@ -4098,6 +4099,18 @@ MonoBehaviour:
   m_Mediator: {fileID: 340418277}
   m_TransformationPriority: 0
   m_DelayTime: 0
+--- !u!114 &340418280
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 340418266}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 961107976c18e144e8e448771bcadb23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterControllerCollisionDebug
 --- !u!1 &346710482
 GameObject:
   m_ObjectHideFlags: 0
