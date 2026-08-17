@@ -314,8 +314,7 @@ public static class RuneTownMapImportTestWindow
         );
 
         // 修改原因：SceneTransitionManager 目前會把 XR Camera
-        // 直接移到 Spawn Position，因此 Spawn 必須放在眼睛高度，
-        // 而不是直接貼在地板表面。
+        // 直接移到 Spawn Position，因此 Spawn 必須放在眼睛高度。
         const float eyeHeight =
             1.6f;
 
@@ -348,6 +347,197 @@ public static class RuneTownMapImportTestWindow
         );
     }
 
+
+    // 修改原因：同一個 X/Z 可能存在多層 Ground Collider，
+    // 使用 RaycastAll 列出全部碰撞面，確認視覺坡面與 Physics Collider
+    // 是否實際位於不同高度或不同 Chunk。
+    [MenuItem("RuneTown/Map Import/Debug Selected Ground Raycast")]
+    public static void DebugSelectedGroundRaycast()
+    {
+        var selectedObject =
+            Selection.activeGameObject;
+
+        if (selectedObject == null)
+        {
+            UnityEngine.Debug.LogError(
+                "[RuneTown Map Import] 請先選擇一個 GameObject 作為 Ground Raycast 測試位置。"
+            );
+            return;
+        }
+
+        int groundLayer =
+            LayerMask.NameToLayer(
+                "Ground"
+            );
+
+        if (groundLayer < 0)
+        {
+            UnityEngine.Debug.LogError(
+                "[RuneTown Map Import] 找不到 Ground Layer。"
+            );
+            return;
+        }
+
+        var selectedPosition =
+            selectedObject.transform.position;
+
+        // 修改原因：依照目前 gl_chyard Ground 的 tileSize = 2f，
+        // 將 GroundProbe 的世界 X/Z 換算成實際 GND Cell，
+        // 用來直接核對該位置四角高度是否真的形成斜坡。
+        const float tileSize = 2f;
+
+        int cellX =
+            Mathf.FloorToInt(
+                selectedPosition.x / tileSize
+            );
+
+        int cellY =
+            Mathf.FloorToInt(
+                selectedPosition.z / tileSize
+            );
+
+        const string mapAssetPath =
+            "Assets/RuneTown/MapImport/Generated/gl_chyard.asset";
+
+        var mapData =
+            AssetDatabase.LoadAssetAtPath<RoMapData>(
+                mapAssetPath
+            );
+
+        if (mapData == null)
+        {
+            UnityEngine.Debug.LogError(
+                $"[RuneTown Map Import] MapData not found: {mapAssetPath}"
+            );
+            return;
+        }
+
+        if (cellX < 0 ||
+            cellX >= mapData.Width ||
+            cellY < 0 ||
+            cellY >= mapData.Height)
+        {
+            UnityEngine.Debug.LogError(
+                $"[RuneTown Map Import] GroundProbe 對應 Cell 超出範圍：" +
+                $"Cell=({cellX},{cellY})"
+            );
+            return;
+        }
+
+        var debugCell =
+            mapData.Cell(
+                cellX,
+                cellY
+            );
+
+        UnityEngine.Debug.Log(
+            $"[RuneTown Map Import] Ground Cell Debug: " +
+            $"Cell=({cellX},{cellY}), " +
+            $"Heights=({debugCell.Heights[0]:F3}, " +
+            $"{debugCell.Heights[1]:F3}, " +
+            $"{debugCell.Heights[2]:F3}, " +
+            $"{debugCell.Heights[3]:F3}), " +
+            $"UnityY=({debugCell.Heights[0] * RoMapData.YScale:F3}, " +
+            $"{debugCell.Heights[1] * RoMapData.YScale:F3}, " +
+            $"{debugCell.Heights[2] * RoMapData.YScale:F3}, " +
+            $"{debugCell.Heights[3] * RoMapData.YScale:F3})"
+        );
+
+        // 修改原因：確認 gl_chyard 的 GAT WalkData 實際解析尺寸，
+        // 之後才能正確把目前 GND Cell 對應到 GAT Walk Cell。
+        const string walkDataPath =
+            "Assets/RuneTown/MapImport/Generated/walkdata/gl_chyard_walkdata.asset";
+
+        var walkData =
+            AssetDatabase.LoadAssetAtPath<RagnarokWalkData>(
+                walkDataPath
+            );
+
+        if (walkData == null)
+        {
+            UnityEngine.Debug.LogError(
+                $"[RuneTown Map Import] WalkData not found: {walkDataPath}"
+            );
+            return;
+        }
+
+        UnityEngine.Debug.Log(
+            $"[RuneTown Map Import] GAT WalkData Size: " +
+            $"Width={walkData.Width}, Height={walkData.Height}, " +
+            $"GND Width={mapData.Width}, Height={mapData.Height}"
+        );
+
+        // 修改原因：只使用測試物件目前的 X/Z，
+        // 從足夠高的位置向下檢查所有 Ground Collider。
+        var rayOrigin =
+            new Vector3(
+                selectedPosition.x,
+                selectedPosition.y + 1000f,
+                selectedPosition.z
+            );
+
+        int groundMask =
+            1 << groundLayer;
+
+        RaycastHit[] hits =
+            Physics.RaycastAll(
+                rayOrigin,
+                Vector3.down,
+                2000f,
+                groundMask
+            );
+
+        if (hits == null ||
+            hits.Length == 0)
+        {
+            UnityEngine.Debug.LogError(
+                $"[RuneTown Map Import] Ground RaycastAll failed: " +
+                $"Object={selectedObject.name}, " +
+                $"X={selectedPosition.x:F3}, " +
+                $"Z={selectedPosition.z:F3}"
+            );
+            return;
+        }
+
+        // 修改原因：依照射線距離排序，
+        // 第一筆就是由上往下最先碰到的 Ground。
+        System.Array.Sort(
+            hits,
+            (a, b) =>
+                a.distance.CompareTo(
+                    b.distance
+                )
+        );
+
+        UnityEngine.Debug.Log(
+            $"[RuneTown Map Import] Ground RaycastAll: " +
+            $"Probe={selectedObject.name}, " +
+            $"HitCount={hits.Length}"
+        );
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            RaycastHit hit =
+                hits[i];
+
+            // 修改原因：法線與 Vector3.up 的夾角，
+            // 可以直接判斷該碰撞面實際坡度。
+            float slopeAngle =
+                Vector3.Angle(
+                    hit.normal,
+                    Vector3.up
+                );
+
+            UnityEngine.Debug.Log(
+                $"[RuneTown Map Import] Ground Hit #{i + 1}: " +
+                $"Collider={hit.collider.gameObject.name}, " +
+                $"Point=({hit.point.x:F3}, {hit.point.y:F3}, {hit.point.z:F3}), " +
+                $"Normal=({hit.normal.x:F3}, {hit.normal.y:F3}, {hit.normal.z:F3}), " +
+                $"SlopeAngle={slopeAngle:F2}°, " +
+                $"Distance={hit.distance:F3}"
+            );
+        }
+    }
     [MenuItem("RuneTown/Map Import/Generate Full RSW Models")]
     public static void GenerateFullRswModels()
     {
