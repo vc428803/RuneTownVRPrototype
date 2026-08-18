@@ -321,32 +321,6 @@ namespace Assets.Scripts.MapEditor
             );
 
             NeedsUVUpdate = true;
-
-            //Mesh.UploadMeshData(false);
-
-            //if (!rebuildUVs)
-            //    return;
-
-            //if (delayUVRebuild)
-            //{
-            //    if (rebuildCoroutine != null)
-            //        EditorCoroutineUtility.StopCoroutine(rebuildCoroutine);
-
-            //    rebuildCoroutine = EditorCoroutineUtility.StartCoroutine(DelayedRebuild(delayToRebuild), this);
-            //}
-            //else
-            //{
-            //    Debug.Log("Do rebuild immediately!");
-
-            //    //RebuildUvs();
-            //    if (rebuildCoroutine != null)
-            //        EditorCoroutineUtility.StopCoroutine(rebuildCoroutine);
-            //    rebuildCoroutine = null;
-
-            //    Debug.Log(Mesh.uv2);
-
-            //    //Mesh.UploadMeshData(false);
-            //}
         }
 
 
