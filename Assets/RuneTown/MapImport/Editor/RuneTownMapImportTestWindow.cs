@@ -381,6 +381,22 @@ public static class RuneTownMapImportTestWindow
         var selectedPosition =
             selectedObject.transform.position;
 
+        // 修改原因：使用目前 GroundProbe 的 World Position，
+        // 驗證 RuneTownWalkDataProvider 計算出的 GAT Cell、Walkable 狀態與地面高度。
+        var walkDataProvider =
+            UnityEngine.Object.FindFirstObjectByType<RuneTownWalkDataProvider>();
+
+        if (walkDataProvider != null)
+        {
+            walkDataProvider.DebugPosition(selectedPosition);
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning(
+                "[RuneTown Map Import] RuneTownWalkDataProvider not found in current scene."
+            );
+        }
+
         // 修改原因：依照目前 gl_chyard Ground 的 tileSize = 2f，
         // 將 GroundProbe 的世界 X/Z 換算成實際 GND Cell，
         // 用來直接核對該位置四角高度是否真的形成斜坡。
