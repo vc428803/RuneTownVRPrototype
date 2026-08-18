@@ -134,6 +134,7 @@ public class SceneTransitionManager : MonoBehaviour
             $"Instance ID：{inputActionManager.GetInstanceID()}"
         );
     }
+
     private void MovePlayerToSpawnPoint()
     {
         if (string.IsNullOrWhiteSpace(targetSpawnId))
@@ -182,6 +183,15 @@ public class SceneTransitionManager : MonoBehaviour
         Transform spawnTransform =
             targetSpawnPoint.transform;
 
+        // 修改原因：確認 Scene 切換定位前 XR Origin、Camera 與 Spawn
+        // 的實際世界座標，用來追查玩家之後被移回原點附近的問題。
+        Debug.Log(
+            "[SceneTransition Debug] BEFORE SPAWN " +
+            "Origin=" + xrOrigin.Origin.transform.position +
+            ", Camera=" + xrOrigin.Camera.transform.position +
+            ", Spawn=" + spawnTransform.position
+        );
+
         // 修改原因：
         // MoveCameraToWorldLocation 會校正 VR 頭部在 XR Origin 內的偏移，
         // 讓玩家實際看到的位置落在出生點。
@@ -189,11 +199,27 @@ public class SceneTransitionManager : MonoBehaviour
             spawnTransform.position
         );
 
+        // 修改原因：確認 MoveCameraToWorldLocation 執行後，
+        // XR Origin 是否已正確移到 Spawn 對應位置。
+        Debug.Log(
+            "[SceneTransition Debug] AFTER MOVE " +
+            "Origin=" + xrOrigin.Origin.transform.position +
+            ", Camera=" + xrOrigin.Camera.transform.position
+        );
+
         // 修改原因：
         // 讓玩家進入新地圖時面向 Spawn Point 的正前方。
         xrOrigin.MatchOriginUpCameraForward(
             spawnTransform.up,
             spawnTransform.forward
+        );
+
+        // 修改原因：確認旋轉校正後是否意外改變
+        // XR Origin 或 Camera 的世界座標。
+        Debug.Log(
+            "[SceneTransition Debug] AFTER ROTATE " +
+            "Origin=" + xrOrigin.Origin.transform.position +
+            ", Camera=" + xrOrigin.Camera.transform.position
         );
 
         Debug.Log(

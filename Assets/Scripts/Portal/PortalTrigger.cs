@@ -50,26 +50,28 @@ public class PortalTrigger : MonoBehaviour
             }
         }
 
-        Camera xrCamera = xrOrigin.Camera;
+        CharacterController characterController =
+            xrOrigin.Origin.GetComponent<CharacterController>();
 
-        if (xrCamera == null)
+        if (characterController == null)
         {
             return;
         }
 
-        Vector3 playerHeadPosition =
-            xrCamera.transform.position;
+        // 修改原因：Portal 應以玩家身體位置判斷是否進入傳送區，
+        // 不應使用 Main Camera / 頭部高度，避免玩家身高或 XR Camera Offset
+        // 改變後頭部超出 Portal Collider 而無法觸發傳送。
+        Vector3 playerBodyPosition =
+            characterController.transform.TransformPoint(
+                characterController.center
+            );
 
-        // 修改原因：
-        // XR Simulator 或瞬移可能直接改變玩家 Transform，
-        // 不一定會觸發 OnTriggerEnter。
-        // 因此直接檢查玩家頭部是否位於 Portal Collider 範圍內。
         Vector3 closestPoint =
-            portalCollider.ClosestPoint(playerHeadPosition);
+            portalCollider.ClosestPoint(playerBodyPosition);
 
         bool playerIsInside =
             Vector3.SqrMagnitude(
-                closestPoint - playerHeadPosition
+                closestPoint - playerBodyPosition
             ) < 0.0001f;
 
         if (playerIsInside)
