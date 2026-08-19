@@ -1,28 +1,52 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion;
 
 [CreateAssetMenu(
-    fileName = "DebugCharacterControllerBodyManipulator",
-    menuName = "RuneTown/Debug/Character Controller Body Manipulator"
+    fileName = "RuneTownGatCharacterControllerBodyManipulator",
+    menuName = "RuneTown/Movement/GAT Character Controller Body Manipulator"
 )]
-public class DebugCharacterControllerBodyManipulator
+// 修改原因：此 Body Manipulator 已由 Debug 驗證用途轉為正式 GAT-driven movement，
+// 因此同步調整 class 與 CreateAssetMenu 命名。
+public class RuneTownGatCharacterControllerBodyManipulator
     : CharacterControllerBodyManipulator
 {
     private RuneTownWalkDataProvider walkDataProvider;
 
     private RuneTownWalkDataProvider GetWalkDataProvider()
     {
-        // 修改原因：正式 GAT-driven movement 需要取得目前場景中的
-        // RuneTownWalkDataProvider，讓玩家移動前可以依 GAT WalkData 判斷是否可走。
+        // 修改原因：Scene 切換期間舊 Scene 與新 Scene 可能短暫同時存在，
+        // 不可直接使用 FindFirstObjectByType()，否則可能取得上一張 RO 地圖的
+        // WalkDataProvider，並用舊 GAT 高度錯誤修改新 Scene 的玩家 Y。
+        Scene activeScene = SceneManager.GetActiveScene();
+
+        // 修改原因：若快取的 WalkDataProvider 已不屬於目前 Active Scene，
+        // 立即清除，避免跨 Scene 沿用舊地圖的 GAT 資料。
+        if (walkDataProvider != null &&
+            walkDataProvider.gameObject.scene != activeScene)
+        {
+            walkDataProvider = null;
+        }
+
         if (walkDataProvider == null)
         {
-            walkDataProvider =
-                Object.FindFirstObjectByType<RuneTownWalkDataProvider>();
+            // 修改原因：Unity 6.4 已棄用帶 FindObjectsSortMode 的 overload，
+            // 改用目前版本的 FindObjectsByType<T>()。
+            RuneTownWalkDataProvider[] providers =
+                Object.FindObjectsByType<RuneTownWalkDataProvider>();
+
+            foreach (RuneTownWalkDataProvider provider in providers)
+            {
+                if (provider.gameObject.scene == activeScene)
+                {
+                    walkDataProvider = provider;
+                    break;
+                }
+            }
         }
 
         return walkDataProvider;
     }
-
     public override CollisionFlags MoveBody(Vector3 motion)
     {
         // 修改原因：確認 XR Body Transformer 傳入的移動量，
