@@ -2681,6 +2681,37 @@ public static class RuneTownMapImportTestWindow
                     UnityEditor.SceneManagement.NewSceneMode.Single
                 );
 
+            // 修改原因：NewSceneMode.Single 會關閉目前 Scene，
+            // 切換過程可能使切換前取得的 RoMapData reference 失效；
+            // 因此建立新 Scene 後重新從 AssetDatabase 載入正式資產。
+            mapData =
+                AssetDatabase.LoadAssetAtPath<RoMapData>(
+                    mapAssetPath
+                );
+
+            walkMapData =
+                AssetDatabase.LoadAssetAtPath<RoMapData>(
+                    walkMapAssetPath
+                );
+
+            // 修改原因：重新載入後再次確認資產有效，
+            // 避免使用已失效的 RoMapData 繼續建立地圖。
+            if (mapData == null)
+            {
+                UnityEngine.Debug.LogError(
+                    $"[RuneTown Map Import] Map asset reload failed after scene switch: {mapAssetPath}"
+                );
+                return;
+            }
+
+            if (walkMapData == null)
+            {
+                UnityEngine.Debug.LogError(
+                    $"[RuneTown Map Import] Walk map asset reload failed after scene switch: {walkMapAssetPath}"
+                );
+                return;
+            }
+
             if (!Directory.Exists(sceneFolder))
             {
                 Directory.CreateDirectory(
@@ -2838,6 +2869,7 @@ public static class RuneTownMapImportTestWindow
             );
         }
     }
+
 
     [MenuItem("RuneTown/Map Import/Generate Water Test")]
     public static void GenerateWaterTest()
