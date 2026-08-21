@@ -35,10 +35,48 @@ namespace Assets.Scripts.MapEditor
 
         public Vector3[] GetTileVertices(Vector2Int point, Vector3 origin)
         {
-            //Debug.Log(point + " " + data.Width);
+            // 修改原因：沿用既有邏輯，將 SharedMeshData 中以地圖座標建立的頂點
+            // 轉換成目前 Chunk 的 Local Space。
             var vertOut = new Vector3[4];
+
             for (var i = 0; i < 4; i++)
-                vertOut[i] = vertexData[point.x + point.y * data.Width][i] - origin;
+            {
+                vertOut[i] =
+                    vertexData[point.x + point.y * data.Width][i]
+                    - origin;
+            }
+
+            // 修改原因：只針對 Chunk_4_6 與 Chunk_4_7 的交界 Cell 輸出資料，
+            // 驗證 Z=224 邊界兩側是否產生完全一致的 Mesh 頂點。
+            //
+            // Chunk_4_6：Cell Y = 96~111
+            // Chunk_4_7：Cell Y = 112~127
+            //
+            // 因此交界需要比對 Y=111 與 Y=112。
+            if (point.x >= 64 &&
+                point.x < 80 &&
+                (point.y == 111 || point.y == 112))
+            {
+                // 修改原因：同時輸出 SharedMeshData 原始世界/地圖座標與
+                // 減去 Chunk Origin 後的 Local 座標，方便判斷錯位發生在哪一層。
+                Vector3[] sourceVerts =
+                    vertexData[point.x + point.y * data.Width];
+
+                Debug.Log(
+                    $"[Chunk Seam Debug] " +
+                    $"Cell={point}, " +
+                    $"Origin={origin}, " +
+                    $"SourceV0={sourceVerts[0]}, " +
+                    $"SourceV1={sourceVerts[1]}, " +
+                    $"SourceV2={sourceVerts[2]}, " +
+                    $"SourceV3={sourceVerts[3]}, " +
+                    $"LocalV0={vertOut[0]}, " +
+                    $"LocalV1={vertOut[1]}, " +
+                    $"LocalV2={vertOut[2]}, " +
+                    $"LocalV3={vertOut[3]}"
+                );
+            }
+
             return vertOut;
         }
 
