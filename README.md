@@ -106,12 +106,35 @@ GAT 行走限制、複雜地形碰撞及地圖接縫仍在持續改善。
 
 目前專案主要分為五個功能模組：
 
-系統模組| 核心功能
-XR Player System| 玩家移動、VR 射線互動、傳送
-Ragnarok Map System| GND / GAT / RSW / RSM 解析與地圖載入
-World System| Prontera、Glast Heim、Portal、場景切換
-Monster System| 魔物生成、管理、動畫、偵測及 Editor Tools
-NPC System| NPC Profile、對話 UI、LLM API 整合
+1. XR Player System｜VR 玩家系統
+
+- 玩家移動與轉向
+- VR 射線互動
+- Teleportation 傳送機制
+
+2. Ragnarok Map System｜RO 地圖系統
+
+- GND / GAT / RSW / RSM 資料解析
+- 地形與 3D 模型生成
+- Runtime Map Loading
+
+3. World System｜世界場景系統
+
+- Prontera（普隆德拉）
+- Glast Heim（古城）
+- Portal 傳送與場景切換
+
+4. Monster System｜魔物系統
+
+- 魔物生成與生命週期管理
+- 玩家偵測、追蹤及動畫
+- Monster Editor Tools 自動化工具
+
+5. NPC System｜NPC 與 AI 對話系統
+
+- NPC Profile 資料管理
+- VR 對話介面
+- LLM API 整合
 
 整體架構方向：
 
