@@ -1,3 +1,5 @@
+
+
 # RuneTown VR Prototype
 
 **Ragnarok Online × Unity 6 × C# × Virtual Reality**
@@ -15,11 +17,12 @@ An unofficial, non-commercial Unity VR technical prototype exploring the reconst
 
 ### RuneTown VR — Prototype Demo (September 2026)
 
-**[▶ Watch the 57-second Gameplay Demo](./docs/demos/videos/01-rune-town-vr-demo.mp4)**
+https://github.com/user-attachments/assets/194fbbe0-bdb5-45ca-b867-d8b3558a52df
 
-[Open Video on GitHub](https://github.com/vc428803/RuneTownVRPrototype/blob/main/docs/demos/videos/01-rune-town-vr-demo.mp4)
-
-The recording documents an earlier development-stage build. Features described elsewhere in this README are supported by the codebase and are not necessarily all shown in this single video.
+The recording documents an earlier development-stage
+build. Features described elsewhere in this README
+are supported by the codebase and are not necessarily
+all shown in this single video.
 
 ---
 
